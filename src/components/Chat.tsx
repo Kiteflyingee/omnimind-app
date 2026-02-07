@@ -10,6 +10,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   thought?: string;
+  status?: string;
   image?: string;
   isStreaming?: boolean;
 }
@@ -71,24 +72,24 @@ export default function Chat() {
     const currentImage = image;
     setInput('');
     setImage(null);
-    
-    setMessages((prev) => [...prev, { 
-      role: 'user', 
+
+    setMessages((prev) => [...prev, {
+      role: 'user',
       content: userMsg,
       image: currentImage || undefined
     }]);
-    
+
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: userMsg, 
-          image: currentImage, 
+        body: JSON.stringify({
+          message: userMsg,
+          image: currentImage,
           sessionId,
-          reasoning: isReasoningEnabled 
+          reasoning: isReasoningEnabled
         }),
       });
 
@@ -98,30 +99,33 @@ export default function Chat() {
       const decoder = new TextDecoder();
       let assistantMsg = '';
       let assistantThought = '';
+      let assistantStatus = '';
       const msgIndex = messages.length + 1;
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: '', thought: '', isStreaming: true }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: '', thought: '', status: '', isStreaming: true }]);
       setIsLoading(false);
       setShowThought(prev => ({ ...prev, [msgIndex]: true }));
 
       while (true) {
         const { done, value } = await reader!.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split(/(?=[tc]:)/);
-        
+        const lines = chunk.split(/(?=[tcs]:)/);
+
         for (const line of lines) {
           if (line.startsWith('t:')) assistantThought += line.slice(2);
           else if (line.startsWith('c:')) assistantMsg += line.slice(2);
+          else if (line.startsWith('s:')) assistantStatus = line.slice(2);
         }
-        
+
         setMessages((prev) => {
           const newMsgs = [...prev];
           const lastMsg = newMsgs[newMsgs.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
             lastMsg.content = assistantMsg;
             lastMsg.thought = assistantThought;
+            lastMsg.status = assistantStatus;
           }
           return newMsgs;
         });
@@ -131,6 +135,7 @@ export default function Chat() {
         const newMsgs = [...prev];
         const lastMsg = newMsgs[newMsgs.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
+          lastMsg.status = ''; // 完成后清除状态
           lastMsg.isStreaming = false;
         }
         return newMsgs;
@@ -183,17 +188,25 @@ export default function Chat() {
                     <img src={msg.image} alt="Upload" className="max-w-xs rounded-2xl" />
                   </div>
                 )}
-                
-                {msg.thought && (
+
+                {(msg.thought || msg.status) && (
                   <div className="w-full space-y-2">
-                    <button onClick={() => toggleThought(i)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                      <div className={cn("w-1 h-1 rounded-full", msg.isStreaming && msg.content === '' ? "bg-blue-500 animate-ping" : "bg-slate-300")} />
-                      思考过程
-                    </button>
-                    {showThought[i] && (
+                    {msg.thought && (
+                      <button onClick={() => toggleThought(i)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        <div className={cn("w-1 h-1 rounded-full", msg.isStreaming && msg.content === '' ? "bg-blue-500 animate-ping" : "bg-slate-300")} />
+                        思考过程
+                      </button>
+                    )}
+                    {msg.thought && showThought[i] && (
                       <div className="relative bg-slate-50/80 rounded-3xl px-5 py-4 text-[13px] text-slate-500 leading-relaxed border border-slate-200/50">
                         <NeuralPulse />
                         <div className="relative z-10 whitespace-pre-wrap font-mono">{msg.thought}</div>
+                      </div>
+                    )}
+                    {msg.status && (
+                      <div className="flex items-center gap-3 px-5 py-3 bg-blue-50/30 rounded-2xl border border-blue-100/50 text-[12px] text-blue-600 font-medium animate-in fade-in slide-in-from-top-1">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        {msg.status}
                       </div>
                     )}
                   </div>
@@ -203,21 +216,28 @@ export default function Chat() {
                   关键点：在流式输出时禁用 layout 属性。
                   只有在静态显示（非输出中）时才启用平滑动画。
                 */}
-                <motion.div 
+                <motion.div
                   layout={msg.isStreaming ? false : "position"}
                   initial={msg.isStreaming ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: "spring", damping: 30, stiffness: 200 }}
                   className={cn(
-                  "rounded-[1.8rem] px-6 py-3.5 text-[15px] shadow-sm leading-[1.6] relative",
-                  msg.role === 'user' 
-                    ? "bg-blue-600 text-white rounded-tr-none font-medium shadow-blue-50" 
-                    : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
-                )}>
+                    "rounded-[1.8rem] px-6 py-3.5 text-[15px] shadow-sm leading-[1.6] relative",
+                    msg.role === 'user'
+                      ? "bg-blue-600 text-white rounded-tr-none font-medium shadow-blue-50"
+                      : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
+                  )}>
                   <div className="whitespace-pre-wrap break-words">
                     {msg.content}
                     {msg.isStreaming && msg.content !== '' && (
                       <span className="inline-block w-1.5 h-4 ml-1 bg-blue-500 rounded-full align-middle animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                    )}
+                    {msg.isStreaming && msg.content === '' && !msg.thought && !msg.status && (
+                      <div className="flex gap-1.5 py-1">
+                        <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
                     )}
                   </div>
                 </motion.div>
@@ -230,7 +250,7 @@ export default function Chat() {
       <div className="p-6 bg-white border-t border-slate-100 shrink-0">
         <div className="max-w-2xl mx-auto space-y-4">
           <div className="flex items-center gap-3">
-            <button 
+            <button
               type="button"
               onClick={() => setIsReasoningEnabled(!isReasoningEnabled)}
               className={cn(
@@ -268,7 +288,7 @@ export default function Chat() {
       </div>
 
       <MemoryDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
-      
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }

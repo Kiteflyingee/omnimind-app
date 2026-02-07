@@ -14,7 +14,7 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
 
   const fetchRules = async () => {
     try {
-      const res = await fetch('/api/rules');
+      const res = await fetch('http://localhost:8000/rules');
       const data = await res.json();
       setRules(data);
     } catch (e) {
@@ -27,8 +27,9 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
   }, [isOpen]);
 
   const deleteRule = async (id: string) => {
-    await fetch('/api/rules', {
+    await fetch('http://localhost:8000/rules', {
       method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
     fetchRules();
@@ -63,8 +64,8 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Memory Center</p>
                 </div>
               </div>
-              <button 
-                onClick={onClose} 
+              <button
+                onClick={onClose}
                 className="p-2 hover:bg-slate-200/50 rounded-full transition-colors"
               >
                 <X className="w-6 h-6 text-slate-400" />
@@ -86,16 +87,16 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
                 ) : (
                   <div className="grid gap-3">
                     {rules.map((rule) => (
-                      <motion.div 
+                      <motion.div
                         layout
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        key={rule.id} 
+                        key={rule.id}
                         className="group flex items-start justify-between gap-3 p-4 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-100 transition-all"
                       >
                         <p className="text-sm text-slate-600 leading-relaxed">{rule.content}</p>
-                        <button 
-                          onClick={() => deleteRule(rule.id)} 
+                        <button
+                          onClick={() => deleteRule(rule.id)}
                           className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -122,7 +123,7 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
                 </div>
               </section>
             </div>
-            
+
             {/* Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-100">
               <p className="text-[10px] text-center text-slate-400 leading-relaxed">

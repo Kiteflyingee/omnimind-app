@@ -1,0 +1,22 @@
+services:
+  omnimind:
+    build:
+      context: .
+      args:
+        - http_proxy=http://172.17.0.1:7890
+        - https_proxy=http://172.17.0.1:7890
+    container_name: omnimind-app
+    # 允许容器通过 host.docker.internal 访问宿主机
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./omnimind.db:/app/omnimind.db
+      - ./.env.local:/app/.env.local
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
