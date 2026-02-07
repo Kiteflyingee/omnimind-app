@@ -27,6 +27,14 @@ class DBService:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS hard_rules (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    is_active INTEGER DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             conn.commit()
 
     def save_message(self, session_id: str, role: str, content: str = None, thought: str = None, tool_calls: list = None):
@@ -87,6 +95,18 @@ class DBService:
                 
                 history.append(msg)
             return history
+
+    def get_full_history(self, session_id: str):
+        with self._get_conn() as conn:
+            cursor = conn.execute("""
+                SELECT role, content, thought, tool_calls, created_at 
+                FROM conversation_history 
+                WHERE session_id = ? 
+                AND role != 'tool'
+                ORDER BY rowid ASC
+            """, (session_id,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
 
     def get_hard_rules(self):
         with self._get_conn() as conn:

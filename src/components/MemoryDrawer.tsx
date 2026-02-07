@@ -12,9 +12,11 @@ interface Rule {
 export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [rules, setRules] = useState<Rule[]>([]);
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   const fetchRules = async () => {
     try {
-      const res = await fetch('http://localhost:8000/rules');
+      const res = await fetch(`${apiUrl}/rules`);
       const data = await res.json();
       setRules(data);
     } catch (e) {
@@ -27,7 +29,7 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
   }, [isOpen]);
 
   const deleteRule = async (id: string) => {
-    await fetch('http://localhost:8000/rules', {
+    await fetch(`${apiUrl}/rules`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
@@ -79,12 +81,13 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
                   <ShieldCheck className="w-5 h-5 text-emerald-500" />
                   <h3 className="font-bold text-slate-700">硬性契约 (Hard Rules)</h3>
                 </div>
-                {rules.length === 0 ? (
+                {Array.isArray(rules) && rules.length === 0 && (
                   <div className="p-8 border-2 border-dashed border-slate-100 rounded-2xl text-center">
                     <Database className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                     <p className="text-sm text-slate-400">尚无存储的硬性规则</p>
                   </div>
-                ) : (
+                )}
+                {Array.isArray(rules) && rules.length > 0 && (
                   <div className="grid gap-3">
                     {rules.map((rule) => (
                       <motion.div

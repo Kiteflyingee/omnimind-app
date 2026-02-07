@@ -5,6 +5,9 @@ import { Send, Settings, Sparkles, User, Bot, ImagePlus, X, Loader2, ChevronDown
 import { Button, Input, cn } from './ui/core';
 import MemoryDrawer from './MemoryDrawer';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -33,6 +36,30 @@ export default function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const sessionId = 'demo-user-123';
+
+  const fetchHistory = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/history/${sessionId}`);
+      if (!response.ok) return;
+      const data = await response.json();
+
+      const formattedMessages: Message[] = data.map((m: any) => ({
+        role: m.role,
+        content: m.content || '',
+        thought: m.thought || '',
+        isStreaming: false
+      }));
+
+      setMessages(formattedMessages);
+    } catch (e) {
+      console.error('Failed to fetch history', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   // 改进的滚动逻辑：流式输出时禁用平滑，确保零延迟跟随
   useEffect(() => {
@@ -82,7 +109,8 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/chat', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,8 +255,17 @@ export default function Chat() {
                       ? "bg-blue-600 text-white rounded-tr-none font-medium shadow-blue-50"
                       : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
                   )}>
-                  <div className="whitespace-pre-wrap break-words">
-                    {msg.content}
+                  <div className={cn(
+                    "break-words markdown-content",
+                    msg.role === 'user' && "whitespace-pre-wrap"
+                  )}>
+                    {msg.role === 'assistant' ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : (
+                      msg.content
+                    )}
                     {msg.isStreaming && msg.content !== '' && (
                       <span className="inline-block w-1.5 h-4 ml-1 bg-blue-500 rounded-full align-middle animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                     )}
@@ -292,7 +329,25 @@ export default function Chat() {
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .whitespace-pre-wrap { line-height: 1.6; word-wrap: break-word; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .markdown-content { font-size: 15px; }
+        .markdown-content p { margin-bottom: 0.75rem; }
+        .markdown-content strong, .markdown-content b { font-weight: 700; }
+        .markdown-content em, .markdown-content i { font-style: italic; }
+        .markdown-content p:last-child { margin-bottom: 0; }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: 800; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .markdown-content h1 { font-size: 1.25rem; }
+        .markdown-content h2 { font-size: 1.1rem; }
+        .markdown-content h3 { font-size: 1rem; }
+        .markdown-content ul, .markdown-content ol { margin-left: 1.25rem; margin-bottom: 0.75rem; }
+        .markdown-content li { margin-bottom: 0.25rem; }
+        .markdown-content code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 0.3rem; font-family: monospace; font-size: 0.9em; }
+        .markdown-content pre { background: #f8fafc; padding: 1rem; border-radius: 1rem; overflow-x: auto; margin-bottom: 0.75rem; border: 1px solid #e2e8f0; }
+        .markdown-content pre code { background: transparent; padding: 0; }
+        .markdown-content blockquote { border-left: 4px solid #e2e8f0; padding-left: 1rem; font-style: italic; color: #64748b; margin-bottom: 0.75rem; }
+        .markdown-content table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; }
+        .markdown-content th, .markdown-content td { border: 1px solid #e2e8f0; padding: 0.5rem; text-align: left; }
+        .markdown-content th { background: #f8fafc; }
       `}</style>
     </div>
   );

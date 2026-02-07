@@ -1,19 +1,33 @@
 services:
-  omnimind:
+  omnimind-app:
     build:
       context: .
       args:
-        - http_proxy=http://172.17.0.1:7890
-        - https_proxy=http://172.17.0.1:7890
+        - http_proxy=${HTTP_PROXY:-}
+        - https_proxy=${HTTPS_PROXY:-}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     container_name: omnimind-app
-    # 允许容器通过 host.docker.internal 访问宿主机
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "3000:3000"
     volumes:
       - ./omnimind.db:/app/omnimind.db
       - ./.env.local:/app/.env.local
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      - omnimind-backend
+    restart: always
+
+  omnimind-backend:
+    build:
+      context: ./backend
+    container_name: omnimind-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./omnimind.db:/omnimind.db
+      - ./config.yaml:/config.yaml
+      - ./.env.local:/.env.local
     restart: always
     logging:
       driver: "json-file"

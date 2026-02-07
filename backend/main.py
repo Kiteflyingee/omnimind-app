@@ -14,7 +14,9 @@ from db import DBService
 from formula import FormulaService
 
 # Load environment variables from .env.local
-load_dotenv(dotenv_path="../.env.local")
+base_dir = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.join(base_dir, "..", ".env.local")
+load_dotenv(dotenv_path=dotenv_path)
 
 app = FastAPI()
 
@@ -192,6 +194,14 @@ async def get_rules():
     try:
         rules = db_service.get_hard_rules()
         return rules
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/history/{session_id}")
+async def get_chat_history(session_id: str):
+    try:
+        history = db_service.get_full_history(session_id)
+        return history
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

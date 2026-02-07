@@ -20,6 +20,8 @@ RUN npm config set registry https://registry.npmmirror.com && \
 COPY . .
 
 # 设置构建变量并执行编译
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
