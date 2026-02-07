@@ -1,0 +1,19 @@
+# OmniMind Configuration
+
+models:
+  fast:
+    name: "qwen-flash"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key: "${QWEN_API_KEY}"
+  advanced:
+    name: "kimi-k2.5"
+    base_url: "https://api.moonshot.cn/v1"
+    api_key: "${MOONSHOT_API_KEY}"
+
+memory:
+  mem0:
+    api_key: "${MEM0_API_KEY}"
+    project_id: "omnimind"
+
+storage:
+  sqlite_path: "./omnimind.db"
