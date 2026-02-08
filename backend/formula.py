@@ -1,5 +1,8 @@
 import httpx
 import json
+from logger import get_logger
+
+logger = get_logger("FormulaService")
 
 class FormulaService:
     def __init__(self, base_url: str, api_key: str, db_service: any = None):
@@ -51,7 +54,7 @@ class FormulaService:
                             self.tool_to_uri[func_name] = uri
                             all_tools.append(tool)
             except Exception as e:
-                print(f"Warning: Failed to load tools from {uri}: {e}")
+                logger.warning(f"Failed to load tools from {uri}: {e}")
         return all_tools
 
     async def call_tool(self, function_name: str, args: dict, user_id: str = None, session_id: str = None):

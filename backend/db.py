@@ -3,6 +3,9 @@ import json
 import os
 import yaml
 from datetime import datetime
+from logger import get_logger
+
+logger = get_logger("DBService")
 
 class DBService:
     def __init__(self, db_path: str):
@@ -71,7 +74,15 @@ class DBService:
                         try:
                             conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")
                         except Exception as e:
-                            print(f"Warning: Failed to add {col} to {table}: {e}")
+                            logger.warning(f"Failed to add {col} to {table}: {e}")
+            
+            # Create indices for better performance
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_history_session ON conversation_history (session_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_history_user ON conversation_history (user_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rules_session ON hard_rules (session_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_rules_user ON hard_rules (user_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)")
+            
             conn.commit()
 
     def get_or_create_user(self, username: str):

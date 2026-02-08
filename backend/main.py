@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 from typing import List, Optional
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -13,6 +13,9 @@ from config_loader import load_config
 from db import DBService
 from formula import FormulaService
 from memory_service import MemoryService
+from logger import get_logger
+
+logger = get_logger("Main")
 
 # Load environment variables from .env.local
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,7 +35,7 @@ app.add_middleware(
 
 # Configuration
 config = load_config()
-db_service = DBService(os.path.join("..", config["storage"]["sqlite_path"]))
+db_service = DBService(os.path.abspath(os.path.join(base_dir, "..", config["storage"]["sqlite_path"])))
 formula_service = FormulaService(
     config["models"]["advanced"]["base_url"],
     config["models"]["advanced"]["api_key"],
@@ -69,7 +72,7 @@ async def summarize_session_title(session_id: str, user_msg: str, ai_msg: str):
             db_service.update_session_title(session_id, new_title)
             return new_title
     except Exception as e:
-        print(f"Warning: Failed to summarize title: {e}")
+        logger.warning(f"Failed to summarize title: {e}")
     return None
 
 @app.post("/chat")
@@ -400,16 +403,21 @@ async def delete_rule(request: RuleDeleteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/reset")
-async def reset_chat(request: Request):
+async def reset_chat(request: Request, background_tasks: BackgroundTasks):
     try:
         body = await request.json()
         session_id = body.get("sessionId")
         user_id = body.get("userId")
         if not session_id or not user_id:
             raise HTTPException(status_code=400, detail="sessionId and userId are required")
+        
+        # 1. Clear database data immediately (Fast)
         db_service.clear_session_data(user_id, session_id)
-        # Clear Mem0 as well
-        memory_service.clear_memory(user_id, session_id)
+        
+        # 2. Clear Mem0 memory in the background (Slow, external API)
+        logger.info(f"Scheduling background memory clearing for user: {user_id}, session: {session_id}")
+        background_tasks.add_task(memory_service.clear_memory, user_id, session_id)
+        
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

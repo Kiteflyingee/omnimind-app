@@ -178,23 +178,33 @@ export default function Chat() {
     if (!currentUser) return;
     if (!confirm('确定要删除此对话及其所有记忆吗？')) return;
 
+    // 1. Optimistic Update
+    const originalSessions = [...sessions];
+    const updated = sessions.filter(s => s.id !== id);
+    setSessions(updated);
+
+    if (activeSessionId === id) {
+      if (updated.length > 0) {
+        setActiveSessionId(updated[0].id);
+      } else {
+        createNewSession();
+      }
+    }
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-      await fetch(`${apiUrl}/chat/reset`, {
+      const response = await fetch(`${apiUrl}/chat/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: id, userId: currentUser.id }),
       });
 
-      const updated = sessions.filter(s => s.id !== id);
-      setSessions(updated);
-      if (activeSessionId === id && updated.length > 0) {
-        setActiveSessionId(updated[0].id);
-      } else if (updated.length === 0) {
-        createNewSession();
-      }
+      if (!response.ok) throw new Error('Delete failed');
     } catch (e) {
       console.error('Failed to delete session', e);
+      // Rollback on failure
+      setSessions(originalSessions);
+      alert('删除失败，请重试');
     }
   };
 
@@ -234,6 +244,12 @@ export default function Chat() {
     if (!currentUser) return;
     if (!confirm('确定要清空此对话的所有记忆吗？')) return;
 
+    // 1. Optimistic Update
+    const originalMessages = [...messages];
+    setMessages([]);
+    setInput('');
+    setImage(null);
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
       const response = await fetch(`${apiUrl}/chat/reset`, {
@@ -242,13 +258,12 @@ export default function Chat() {
         body: JSON.stringify({ sessionId: activeSessionId, userId: currentUser.id }),
       });
 
-      if (response.ok) {
-        setMessages([]);
-        setInput('');
-        setImage(null);
-      }
+      if (!response.ok) throw new Error('Reset failed');
     } catch (e) {
       console.error('Failed to reset chat', e);
+      // Rollback on failure
+      setMessages(originalMessages);
+      alert('重置失败，请重试');
     }
   };
 

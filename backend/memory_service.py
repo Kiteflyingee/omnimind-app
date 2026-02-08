@@ -1,5 +1,8 @@
 import os
 from mem0 import MemoryClient
+from logger import get_logger
+
+logger = get_logger("MemoryService")
 
 class MemoryService:
     def __init__(self, api_key: str):
@@ -12,7 +15,7 @@ class MemoryService:
         try:
             self.client.add(content, user_id=user_id, run_id=run_id)
         except Exception as e:
-            print(f"Warning: Failed to add memory to Mem0: {e}")
+            logger.error(f"Failed to add memory to Mem0: {e}")
 
     def search_memory(self, query: str, user_id: str, run_id: str):
         """
@@ -32,7 +35,7 @@ class MemoryService:
                 results = results["results"]
                 
             if not isinstance(results, list):
-                print(f"Warning: Unexpected Mem0 search result format: {type(results)}")
+                logger.warning(f"Unexpected Mem0 search result format: {type(results)}")
                 return ""
                 
             memories = []
@@ -45,7 +48,7 @@ class MemoryService:
                     
             return "\n".join([f"- {m}" for m in memories])
         except Exception as e:
-            print(f"Warning: Failed to search memory in Mem0: {e}")
+            logger.error(f"Failed to search memory in Mem0: {e}")
             return ""
 
     def clear_memory(self, user_id: str, run_id: str = None):
@@ -53,9 +56,11 @@ class MemoryService:
         Clear memories for a user. If run_id is provided, only clear that session's memory.
         Note: Mem0 delete API might vary, using a simplified approach if direct filter delete isn't available.
         """
+        logger.info(f"Starting background memory clearing for user: {user_id}, session: {run_id}")
         try:
             # Mem0's delete often takes user_id, run_id isn't always a direct delete filter in all versions
             # but we follow the intent of clearing current session if possible.
-            self.client.delete_all(user_id=user_id)
+            self.client.delete_all(user_id=user_id, run_id=run_id)
+            logger.info(f"Successfully cleared memory for user: {user_id}, session: {run_id}")
         except Exception as e:
-            print(f"Warning: Failed to clear memory in Mem0: {e}")
+            logger.error(f"Failed to clear memory in Mem0: {e}")
