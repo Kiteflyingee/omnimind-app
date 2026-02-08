@@ -21,6 +21,9 @@ services:
   omnimind-backend:
     build:
       context: ./backend
+      args:
+        - http_proxy=${HTTP_PROXY:-}
+        - https_proxy=${HTTPS_PROXY:-}
     container_name: omnimind-backend
     ports:
       - "8000:8000"

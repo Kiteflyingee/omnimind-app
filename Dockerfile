@@ -1,6 +1,11 @@
 # Stage 1: Build
 FROM node:20-alpine AS builder
 
+ARG http_proxy
+ARG https_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+
 # 设置国内镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     apk add --no-cache libc6-compat python3 make g++

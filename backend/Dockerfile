@@ -1,5 +1,10 @@
 FROM python:3.11-slim
 
+ARG http_proxy
+ARG https_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+
 
 WORKDIR /app
 
