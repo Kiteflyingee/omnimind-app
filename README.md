@@ -59,19 +59,51 @@ docker-compose up -d --build
 ```
 
 ### 方案 B：手动部署
-1.  **运行后端**：
-    ```bash
-    cd backend && python3 -m venv venv && source venv/bin/activate
-    pip install -r requirements.txt
-    pm2 start "venv/bin/python main.py" --name "backend"
-    ```
-2.  **运行前端**：
-    ```bash
-    npm install && npm run build
-    pm2 start npm --name "frontend" -- start
-    ```
+
+#### 1. 部署前准备
+- **环境**: 确保已按照 [技术架构](#技术架构) 安装 Node.js 和 Python。
+- **配置**: 复制 [`.env.example`](./.env.example) 为 `.env.local` 并填写 API Key：
+  ```bash
+  cp .env.example .env.local
+  ```
+
+#### 2. 运行后端 (FastAPI)
+```bash
+cd backend
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+pm2 start "venv/bin/python main.py" --name "omnimind-backend"
+```
+
+#### 3. 运行前端 (Next.js)
+```bash
+npm install && npm run build
+pm2 start npm --name "omnimind-frontend" -- start
+```
+
+#### 4. 配置 Nginx (必需)
+由于 AI 回复采用流式输出，必须使用 Nginx 反向代理并禁用缓冲。详细配置请参考下文。
 
 *详细配置请参考 `.env.local` 环境变量说明。*
+
+### ⚠️ 流式输出与 Nginx 生产环境配置
+
+在生产环境中（使用 Nginx 作为反向代理时），如果不进行特殊配置，Nginx 会尝试缓冲后端的流式响应，导致 AI 回复出现“卡顿”或大块弹出的现象。
+
+**必须**在 Nginx 的 `location /` 块中加入以下关键配置以禁用缓冲：
+
+```nginx
+# --- 核心流式配置 ---
+proxy_buffering off;
+proxy_set_header X-Accel-Buffering no;
+proxy_read_timeout 300s;
+# --------------------
+```
+
+我们提供了一个完整的 Nginx 配置文件模板，涵盖了前端、静态资源及后端转发：
+👉 [查看完整 Nginx 配置模板 (nginx/omnimind.conf)](./nginx/omnimind.conf)
+
+配置完成后，请运行 `nginx -t` 检查语法，并执行 `nginx -s reload` 生效。
 
 ---
 
