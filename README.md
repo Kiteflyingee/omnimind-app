@@ -53,10 +53,23 @@ OmniMind 解决了模型“转头就忘”的痛点：
 ## 📦 生产环境快速部署
 
 ### 方案 A：Docker (推荐)
-```bash
-# 自动处理依赖与地理代理
-docker-compose up -d --build
-```
+
+> [!IMPORTANT]
+> **环境变量关键说明**：由于 Next.js 的特性，`NEXT_PUBLIC_` 变量必须在**构建时 (Build Time)** 注入。
+
+1. **配置并启动**：
+   ```bash
+   # 如果前端直连后端，设置您的服务器公网 IP 或域名
+   export NEXT_PUBLIC_API_URL=http://<您的服务器IP>:8000
+   
+   # 如果配合 Nginx 反向代理使用，请设为空字符串
+   export NEXT_PUBLIC_API_URL=""
+   
+   docker-compose build --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+   docker-compose up -d
+   ```
+
+2. **自动逻辑**：`docker-compose.yml` 已配置为自动读取环境中的该变量并透传给构建过程。
 
 ### 方案 B：手动部署
 
@@ -86,24 +99,24 @@ pm2 start npm --name "omnimind-frontend" -- start
 
 *详细配置请参考 `.env.local` 环境变量说明。*
 
-### ⚠️ 流式输出与 Nginx 生产环境配置
+### ⚠️ 流式输出与 Nginx 生产环境配置 (重要)
 
-在生产环境中（使用 Nginx 作为反向代理时），如果不进行特殊配置，Nginx 会尝试缓冲后端的流式响应，导致 AI 回复出现“卡顿”或大块弹出的现象。
+在生产环境中，如果使用 Nginx 转发并发现 AI 回复无法逐字显示，通常是因为 **Next.js 的内部 Rewrite 代理层** 产生了缓冲。
 
-**必须**在 Nginx 的 `location /` 块中加入以下关键配置以禁用缓冲：
+**解决方案：** 建议在 Nginx 中配置“直连转发”，即特定的 API 路径（如 `/chat`, `/sessions` 等）直接转发到后端 8000 端口，而不经过前端的 3000 端口转发。
 
+我们在模板中已经配置好了正则表达式匹配：
+👉 [查看推荐的 Nginx 直连配置模板 (nginx/omnimind.conf)](./nginx/omnimind.conf)
+
+**核心配置项：**
 ```nginx
-# --- 核心流式配置 ---
-proxy_buffering off;
-proxy_set_header X-Accel-Buffering no;
-proxy_read_timeout 300s;
-# --------------------
+location ~ ^/(chat|login|sessions|history|rules) {
+    proxy_pass http://127.0.0.1:8000; # 直连后端
+    proxy_buffering off;
+    proxy_set_header X-Accel-Buffering no;
+    gzip off; # 必须关闭 gzip
+}
 ```
-
-我们提供了一个完整的 Nginx 配置文件模板，涵盖了前端、静态资源及后端转发：
-👉 [查看完整 Nginx 配置模板 (nginx/omnimind.conf)](./nginx/omnimind.conf)
-
-配置完成后，请运行 `nginx -t` 检查语法，并执行 `nginx -s reload` 生效。
 
 ---
 

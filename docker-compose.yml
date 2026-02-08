@@ -5,7 +5,8 @@ services:
       args:
         - http_proxy=${HTTP_PROXY:-}
         - https_proxy=${HTTPS_PROXY:-}
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        # 重要：Next.js 构建时需要该变量，若配合 Nginx 使用可保持为空或 "."
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     container_name: omnimind-app
     ports:
       - "3000:3000"
@@ -13,7 +14,7 @@ services:
       - ./omnimind.db:/app/omnimind.db
       - ./.env.local:/app/.env.local
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     depends_on:
       - omnimind-backend
     restart: always
