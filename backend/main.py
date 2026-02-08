@@ -194,7 +194,7 @@ async def chat(request: ChatRequest):
                     "stream": True,
                     "tools": available_tools,
                     "max_tokens": 1024 * 32,
-                    "temperature": 1.0,
+                    "temperature": 1.0 if request.reasoning else 0.0,
                 }
                 if request.reasoning is False:
                     completion_args["extra_body"] = {

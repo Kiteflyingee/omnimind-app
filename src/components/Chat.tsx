@@ -550,16 +550,20 @@ export default function Chat() {
             {messages.map((msg, i) => (
               <div key={i} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
                 <div className={cn(
-                  "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm",
-                  msg.role === 'user' ? "bg-slate-900" : "bg-white border border-slate-100"
+                  "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md overflow-hidden bg-white border border-slate-100",
+                  msg.role === 'user' ? "bg-slate-900 border-slate-800" : ""
                 )}>
-                  {msg.role === 'user' ? <User className="w-5 h-5 text-white" /> : <Bot className={cn("w-5 h-5 text-blue-600", msg.isStreaming && "animate-pulse")} />}
+                  {msg.role === 'user' ? (
+                    <img src="/avatars/user.png" alt="User" className="w-full h-full object-cover" />
+                  ) : (
+                    <img src="/avatars/ai.png" alt="AI" className={cn("w-full h-full object-cover", msg.isStreaming && "animate-pulse")} />
+                  )}
                 </div>
 
                 <div className={cn("max-w-[85%] space-y-3", msg.role === 'user' ? "items-end" : "items-start")}>
                   {msg.image && (
-                    <div className="p-1 bg-white rounded-3xl shadow-lg border border-slate-100">
-                      <img src={msg.image} alt="Upload" className="max-w-xs rounded-2xl" />
+                    <div className="p-1 bg-white rounded-3xl shadow-lg border border-slate-100 max-w-[calc(100vw-120px)] lg:max-w-md">
+                      <img src={msg.image} alt="Upload" className="w-full h-auto rounded-2xl object-contain message-image" />
                     </div>
                   )}
 
