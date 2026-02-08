@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
         destination: 'http://127.0.0.1:8000/login',
       },
       {
+        source: '/chat/reset',
+        destination: 'http://127.0.0.1:8000/chat/reset',
+      },
+      {
         source: '/sessions/:path*',
         destination: 'http://127.0.0.1:8000/sessions/:path*',
       },
@@ -30,8 +34,8 @@ const nextConfig: NextConfig = {
         destination: 'http://127.0.0.1:8000/rules/:path*',
       },
       {
-        source: '/chat/reset',
-        destination: 'http://127.0.0.1:8000/chat/reset',
+        source: '/rules',
+        destination: 'http://127.0.0.1:8000/rules',
       },
     ];
   },

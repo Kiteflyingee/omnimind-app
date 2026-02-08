@@ -100,7 +100,7 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
                         <p className="text-sm text-slate-600 leading-relaxed">{rule.content}</p>
                         <button
                           onClick={() => deleteRule(rule.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                          className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

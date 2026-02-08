@@ -472,7 +472,7 @@ export default function Chat() {
                   </div>
                   <button
                     onClick={(e) => deleteSession(s.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-500 transition-all"
+                    className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1 hover:text-rose-500 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
