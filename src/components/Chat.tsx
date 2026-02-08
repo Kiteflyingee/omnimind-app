@@ -617,25 +617,25 @@ export default function Chat() {
                   关键点：在流式输出时禁用 layout 属性。
                   只有在静态显示（非输出中）时才启用平滑动画。
                 */}
-                  <motion.div
-                    layout={msg.isStreaming ? false : "position"}
-                    initial={msg.isStreaming ? false : { opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ type: "spring", damping: 30, stiffness: 200 }}
-                    className={cn(
-                      "rounded-[1.8rem] px-6 py-3.5 text-[15px] shadow-sm leading-[1.6] relative max-w-full overflow-hidden",
-                      msg.role === 'user'
-                        ? "bg-blue-600 text-white rounded-tr-none font-medium shadow-blue-50"
-                        : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
-                    )}>
-                    <div className={cn(
-                      "break-words markdown-content",
-                      msg.role === 'user' && "whitespace-pre-wrap"
-                    )}>
+                  {/* Only show the content bubble if there is content, OR if it's a user message, OR if it's currently streaming with content */}
+                  {(msg.content || msg.role === 'user' || (msg.isStreaming && msg.content !== '')) && (
+                    <motion.div
+                      layout={msg.isStreaming ? false : "position"}
+                      initial={msg.isStreaming ? false : { opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ type: "spring", damping: 30, stiffness: 200 }}
+                      className={cn(
+                        "rounded-[1.8rem] px-6 py-3.5 text-[15px] shadow-sm leading-[1.6] relative max-w-full overflow-hidden",
+                        msg.role === 'user'
+                          ? "bg-blue-600 text-white rounded-tr-none font-medium shadow-blue-50"
+                          : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
+                      )}>
                       {msg.role === 'assistant' ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                          {msg.content}
-                        </ReactMarkdown>
+                        <div className="markdown-content">
+                          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
                       ) : (
                         msg.content
                       )}
@@ -646,8 +646,8 @@ export default function Chat() {
                           <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                       )}
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  )}
                 </div>
               </div>
             ))}

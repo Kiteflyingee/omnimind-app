@@ -95,6 +95,40 @@ async def chat(request: ChatRequest):
             )
             history = db_service.get_history(request.sessionId)
             
+            # History Repair: Remove failed turns (orphaned tool calls)
+            cleaned_history = []
+            idx = 0
+            while idx < len(history):
+                m = history[idx]
+                if m["role"] == "assistant" and m.get("tool_calls"):
+                    # Check for tool completion
+                    tool_call_ids = {tc["id"] for tc in m["tool_calls"]}
+                    found_tool_ids = set()
+                    search_idx = idx + 1
+                    tools_found = []
+                    while search_idx < len(history) and history[search_idx]["role"] == "tool":
+                        tid = history[search_idx].get("tool_call_id")
+                        if tid in tool_call_ids:
+                            found_tool_ids.add(tid)
+                            tools_found.append(history[search_idx])
+                        search_idx += 1
+                    
+                    if found_tool_ids == tool_call_ids:
+                        cleaned_history.append(m)
+                        cleaned_history.extend(tools_found)
+                        idx = search_idx
+                    else:
+                        # Orphan found! Strip the triggering user message too
+                        if cleaned_history and cleaned_history[-1]["role"] == "user":
+                            cleaned_history.pop()
+                        idx = search_idx # Skip assistant and any tool scraps
+                elif m["role"] == "tool":
+                    idx += 1 # Standalone tool scrap
+                else:
+                    cleaned_history.append(m)
+                    idx += 1
+            history = cleaned_history
+            
             user_msg_content = request.message
             if request.image:
                 user_msg_content = [
@@ -132,71 +166,26 @@ async def chat(request: ChatRequest):
                 iteration += 1
                 yield "s:🧠 正在思考中..."
                 
-                # Defensive cleaning (Ensure sequence integrity)
+                # Strict sequence reconstruction for API request
                 request_messages = []
-                temp_messages = []
                 for m in current_messages:
                     role = m["role"]
                     content = m.get("content")
+                    msg = {"role": role, "content": content}
                     
-                    if role == "system":
-                        temp_messages.append({"role": "system", "content": content})
-                    elif role == "user":
-                        temp_messages.append({"role": "user", "content": content})
-                    elif role == "assistant":
-                        msg = {"role": "assistant", "content": content}
-                        # Include reasoning_content as required by Kimi models
-                        if "reasoning_content" in m:
-                            msg["reasoning_content"] = m["reasoning_content"]
-                        elif "thought" in m: # Handle alternate naming
-                            msg["reasoning_content"] = m["thought"]
-                        
-                        # Kimi models REQUIRE reasoning_content to be present in assistant messages with tool_calls
+                    if role == "assistant":
+                        # reasoning_content (Kimi requirement)
+                        rc = m.get("reasoning_content") or m.get("thought")
+                        if rc: msg["reasoning_content"] = rc
                         if m.get("tool_calls"):
                             msg["tool_calls"] = m["tool_calls"]
-                            if content is None: msg["content"] = None
-                            
-                            # Ensure reasoning_content is non-empty if tool_calls are present
-                            if not msg.get("reasoning_content"):
-                                msg["reasoning_content"] = "Analyzing context and preparing tool calls..."
-                        
-                        temp_messages.append(msg)
+                            # Ensure content is None if only tool_calls are present
+                            if not content: msg["content"] = None
                     elif role == "tool":
-                        temp_messages.append({
-                            "role": "tool",
-                            "tool_call_id": m.get("tool_call_id"),
-                            "name": m.get("name"),
-                            "content": content
-                        })
-
-                # Second pass: remove assistant messages with tool_calls that aren't followed by tool messages
-                i = 0
-                while i < len(temp_messages):
-                    msg = temp_messages[i]
-                    if msg["role"] == "assistant" and msg.get("tool_calls"):
-                        # Count how many tool calls
-                        num_calls = len(msg["tool_calls"])
-                        # Check if next num_calls messages are 'tool' messages
-                        all_tools_present = True
-                        if i + num_calls >= len(temp_messages):
-                            all_tools_present = False
-                        else:
-                            for j in range(1, num_calls + 1):
-                                if temp_messages[i+j]["role"] != "tool":
-                                    all_tools_present = False
-                                    break
-                        
-                        if all_tools_present:
-                            request_messages.append(msg)
-                            for j in range(1, num_calls + 1):
-                                request_messages.append(temp_messages[i+j])
-                            i += num_calls + 1
-                        else:
-                            # Skip this assistant message and keep looking
-                            i += 1
-                    else:
-                        request_messages.append(msg)
-                        i += 1
+                        msg["tool_call_id"] = m.get("tool_call_id")
+                        msg["name"] = m.get("name")
+                    
+                    request_messages.append(msg)
 
                 # Call Model
                 completion_args = {
@@ -279,16 +268,14 @@ async def chat(request: ChatRequest):
                     assistant_msg = {
                         "role": "assistant",
                         "content": current_content or None,
-                        "reasoning_content": current_thought or "Analyzing...",
-                    "tool_calls": tool_calls
+                        "reasoning_content": current_thought or "Directly executing tools...",
+                        "tool_calls": tool_calls
                     }
-                    """
                     db_service.save_message(
                         request.userId,
                         request.sessionId, "assistant", 
                         assistant_msg["content"], assistant_msg["reasoning_content"], tool_calls
                     )
-                    """
                     current_messages.append(assistant_msg)
                     
                     for tc in tool_calls:
