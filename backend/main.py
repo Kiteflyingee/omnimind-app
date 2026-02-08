@@ -49,6 +49,7 @@ class ChatRequest(BaseModel):
     userId: str
     image: Optional[str] = None
     reasoning: Optional[bool] = False
+    useMemory: Optional[bool] = True
 
 async def summarize_session_title(session_id: str, user_msg: str, ai_msg: str):
     try:
@@ -76,8 +77,12 @@ async def chat(request: ChatRequest):
     async def event_generator():
         try:
             # 1. Retrieve memories and hard rules (Isolated by sessionId)
-            yield "s:🔍 正在检索记忆与规则..."
-            memories = memory_service.search_memory(request.message, request.userId, request.sessionId)
+            memories = ""
+            if request.useMemory:
+                yield "s:🔍 正在检索记忆与规则..."
+                memories = memory_service.search_memory(request.message, request.userId, request.sessionId)
+            else:
+                yield "s:🔍 正在检索规则..."
             hard_rules_list = db_service.get_hard_rules(request.userId, request.sessionId)
             hard_rules_str = "\n".join([f"- {r['content']}" for r in hard_rules_list]) if hard_rules_list else "暂无本会话专有的硬性规则"
             
@@ -310,11 +315,12 @@ async def chat(request: ChatRequest):
                         request.sessionId, "assistant", current_content, current_thought
                     )
                     # Save to Mem0 (isolated by run_id)
-                    memory_service.add_memory(
-                        f"User: {request.message}\nAssistant: {current_content}",
-                        user_id=request.userId,
-                        run_id=request.sessionId
-                    )
+                    if request.useMemory:
+                        memory_service.add_memory(
+                            f"User: {request.message}\nAssistant: {current_content}",
+                            user_id=request.userId,
+                            run_id=request.sessionId
+                        )
                     break
             
             # 3. Check if we need to update session title

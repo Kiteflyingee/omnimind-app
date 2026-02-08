@@ -73,14 +73,26 @@ OmniMind 解决了模型“转头就忘”的痛点：
 
 ### 方案 B：手动部署
 
-#### 1. 部署前准备
+#### 1. 启动后端与前端 (使用 deploy.sh)
+我们提供了一个一键启动脚本，支持代理配置：
+```bash
+# 编辑脚本修改 PROXY_URL 变量
+vi deploy.sh
+
+# 执行启动 (会自动注入代理并清理旧任务)
+./deploy.sh
+```
+
+#### 2. 自动逻辑
+`deploy.sh` 会自动使用 `venv` 中的 Python 解释器并配置 `NO_PROXY` 以确保本地回环正常。
+
+#### 3. 部署前准备
 - **环境**: 确保已按照 [技术架构](#技术架构) 安装 Node.js 和 Python。
 - **配置**: 复制 [`.env.example`](./.env.example) 为 `.env.local` 并填写 API Key：
   ```bash
   cp .env.example .env.local
   ```
 
-#### 2. 运行后端 (FastAPI)
 ```bash
 cd backend
 python3 -m venv venv && source venv/bin/activate

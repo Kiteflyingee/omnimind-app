@@ -305,6 +305,8 @@ export default function Chat() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const useMemory = localStorage.getItem('omnimind_use_memory') !== 'false';
+
       const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -313,7 +315,8 @@ export default function Chat() {
           image: currentImage,
           sessionId: activeSessionId,
           userId: currentUser?.id,
-          reasoning: isReasoningEnabled
+          reasoning: isReasoningEnabled,
+          useMemory: useMemory
         }),
       });
 

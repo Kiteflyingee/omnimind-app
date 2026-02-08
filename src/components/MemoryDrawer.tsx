@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Brain, Trash2, ShieldCheck, Database, Zap } from 'lucide-react';
+import { cn } from './ui/core';
 
 interface Rule {
   id: string;
@@ -11,6 +12,21 @@ interface Rule {
 
 export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { isOpen: boolean; onClose: () => void; sessionId: string; userId: string }) {
   const [rules, setRules] = useState<Rule[]>([]);
+  const [useMemory, setUseMemory] = useState(true);
+
+  // Load preference on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('omnimind_use_memory');
+    if (saved !== null) {
+      setUseMemory(saved === 'true');
+    }
+  }, []);
+
+  const toggleMemory = () => {
+    const nextValue = !useMemory;
+    setUseMemory(nextValue);
+    localStorage.setItem('omnimind_use_memory', String(nextValue));
+  };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -111,17 +127,40 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
               </section>
 
               <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <Zap className="w-5 h-5 text-amber-500" />
-                  <h3 className="font-bold text-slate-700">柔性事实 (Soft Facts)</h3>
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-amber-500" />
+                    <h3 className="font-bold text-slate-700">柔性事实 (Soft Facts)</h3>
+                  </div>
+                  <button
+                    onClick={toggleMemory}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                      useMemory ? "bg-blue-600" : "bg-slate-200"
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                        useMemory ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
                 </div>
-                <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
-                  <p className="text-xs text-amber-700 leading-relaxed">
-                    柔性事实由 Mem0 向量库自动管理，用于增强 AI 的上下文感知能力。
+                <div className={cn(
+                  "p-4 rounded-2xl border transition-all",
+                  useMemory ? "bg-amber-50/50 border-amber-100" : "bg-slate-50 border-slate-100 grayscale"
+                )}>
+                  <p className={cn("text-xs leading-relaxed", useMemory ? "text-amber-700" : "text-slate-400")}>
+                    {useMemory ? "柔性事实由 Mem0 向量库自动管理，用于增强 AI 的上下文感知能力。" : "柔性事实已禁用。AI 将不再检索长效记忆，响应速度将得到提升。"}
                   </p>
-                  <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-amber-400 uppercase tracking-tight">
-                    <span className="w-1 h-1 rounded-full bg-amber-400" />
-                    Cloud Sync Active
+                  <div className={cn(
+                    "mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-tight",
+                    useMemory ? "text-amber-400" : "text-slate-300"
+                  )}>
+                    <span className={cn("w-1 h-1 rounded-full", useMemory ? "bg-amber-400" : "bg-slate-300")} />
+                    {useMemory ? "Cloud Sync Active" : "Sync Disabled"}
                   </div>
                 </div>
               </section>
