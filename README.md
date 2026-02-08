@@ -102,6 +102,7 @@ pm2 start "venv/bin/python main.py" --name "omnimind-backend"
 
 #### 3. 运行前端 (Next.js)
 ```bash
+cd ..
 npm install && npm run build
 pm2 start npm --name "omnimind-frontend" -- start
 ```
