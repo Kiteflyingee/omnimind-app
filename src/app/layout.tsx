@@ -9,8 +9,11 @@ export const metadata: Metadata = {
   description: "AI with Long-term Memory",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "OmniMind",
+  },
+  icons: {
+    apple: "/avatars/ai.png",
   },
 };
 
@@ -19,6 +22,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({

@@ -447,7 +447,7 @@ export default function Chat() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed lg:relative z-50 w-72 h-full bg-white/80 backdrop-blur-2xl border-r border-slate-100 flex flex-col"
+            className="fixed lg:relative z-50 w-72 h-full bg-white/80 backdrop-blur-2xl border-r border-slate-100 flex flex-col pl-[env(safe-area-inset-left)]"
           >
             <div className="p-6">
               <button
@@ -514,7 +514,7 @@ export default function Chat() {
           />
         )}
 
-        <header className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white/60 backdrop-blur-3xl sticky top-0 z-40">
+        <header className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white/60 backdrop-blur-3xl sticky top-0 z-40 pt-[calc(1.25rem+env(safe-area-inset-top))]" style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-10 h-10 flex items-center justify-center hover:bg-slate-50 rounded-2xl transition-all text-slate-400">
               <PanelLeft className="w-5 h-5" />
@@ -661,7 +661,7 @@ export default function Chat() {
           </AnimatePresence>
         </div>
 
-        <div className="p-6 bg-white border-t border-slate-100 shrink-0">
+        <div className="p-6 bg-white border-t border-slate-100 shrink-0 pb-[calc(1.5rem+env(safe-area-inset-bottom))]" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
           <div className="max-w-2xl mx-auto space-y-4">
             <div className="flex items-center gap-3">
               <button
