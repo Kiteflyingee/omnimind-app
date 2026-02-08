@@ -28,3 +28,56 @@ body {
 #next-logo {
   display: none !important;
 }
+
+/* Markdown Content Styles */
+.markdown-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.markdown-content th {
+  background-color: #f8fafc;
+}
+
+.markdown-content code {
+  word-break: break-word;
+  padding: 0.2em 0.4em;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+}
+
+.markdown-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1rem;
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-radius: 1rem;
+  margin: 1rem 0;
+}
+
+/* Custom Scrollbar for Markdown Tables */
+.markdown-content table::-webkit-scrollbar {
+  height: 4px;
+}
+
+.markdown-content table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-content table::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}

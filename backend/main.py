@@ -282,11 +282,13 @@ async def chat(request: ChatRequest):
                         "reasoning_content": current_thought or "Analyzing...",
                     "tool_calls": tool_calls
                     }
+                    """
                     db_service.save_message(
                         request.userId,
                         request.sessionId, "assistant", 
                         assistant_msg["content"], assistant_msg["reasoning_content"], tool_calls
                     )
+                    """
                     current_messages.append(assistant_msg)
                     
                     for tc in tool_calls:

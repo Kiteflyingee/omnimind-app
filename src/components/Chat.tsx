@@ -16,6 +16,7 @@ interface Message {
   status?: string;
   image?: string;
   isStreaming?: boolean;
+  isThoughtExpanded?: boolean;
 }
 
 interface UserProfile {
@@ -208,11 +209,18 @@ export default function Chat() {
       const formattedMessages: Message[] = data.map((m: any) => ({
         role: m.role,
         content: m.content || '',
-        thought: m.thought || '',
-        isStreaming: false
+        thought: m.thought || m.reasoning_content || '',
+        isStreaming: false,
+        isThoughtExpanded: !!(m.thought || m.reasoning_content)
       }));
 
       setMessages(formattedMessages);
+      // Synchronize showThought for any component still using the old state map
+      const initialShowState: Record<number, boolean> = {};
+      formattedMessages.forEach((m, idx) => {
+        if (m.thought) initialShowState[idx] = true;
+      });
+      setShowThought(initialShowState);
     } catch (e) {
       console.error('Failed to fetch history', e);
     }
@@ -262,6 +270,10 @@ export default function Chat() {
   }, [messages]);
 
   const toggleThought = (index: number) => {
+    setMessages(prev => prev.map((m, i) =>
+      i === index ? { ...m, isThoughtExpanded: !m.isThoughtExpanded } : m
+    ));
+    // Also update the legacy map for consistency
     setShowThought(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
@@ -314,12 +326,11 @@ export default function Chat() {
       let assistantMsg = '';
       let assistantThought = '';
       let assistantStatus = '';
-      let assistantMessageIndex = -1; // To store the index of the assistant message
 
       setMessages((prev) => {
-        assistantMessageIndex = prev.length; // Capture the index of the new assistant message
-        setShowThought(st => ({ ...st, [assistantMessageIndex]: true }));
-        return [...prev, { role: 'assistant', content: '', thought: '', status: '', isStreaming: true }];
+        const nextIdx = prev.length;
+        setShowThought(st => ({ ...st, [nextIdx]: true }));
+        return [...prev, { role: 'assistant', content: '', thought: '', status: '', isStreaming: true, isThoughtExpanded: true }];
       });
       setIsLoading(false);
 
@@ -340,6 +351,8 @@ export default function Chat() {
           if (prefixMatch) {
             currentMode = prefixMatch[1] as 't' | 'c' | 's' | 'u';
             buffer = buffer.slice(2);
+            // Clear the status when a new status prefix arrives
+            if (currentMode === 's') assistantStatus = '';
             continue;
           }
 
@@ -381,17 +394,17 @@ export default function Chat() {
 
           // Trigger update
           setMessages((prev) => {
-            const newMsgs = [...prev];
-            const lastIdx = newMsgs.length - 1;
-            if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
-              newMsgs[lastIdx] = {
-                ...newMsgs[lastIdx],
-                content: assistantMsg,
-                thought: assistantThought,
-                status: assistantStatus
-              };
+            const newMessages = [...prev];
+            const assistantMessageIndex = newMessages.length - 1; // Assuming the last message is the assistant's
+            if (assistantMessageIndex >= 0 && newMessages[assistantMessageIndex].role === 'assistant') {
+              const msg = { ...newMessages[assistantMessageIndex] };
+              msg.content = assistantMsg;
+              msg.thought = assistantThought;
+              msg.status = assistantStatus;
+              msg.isThoughtExpanded = msg.isThoughtExpanded ?? true; // Maintain expanded state
+              newMessages[assistantMessageIndex] = msg;
             }
-            return newMsgs;
+            return newMessages;
           });
 
           // If we just processed content and the buffer is empty, we're done with this chunk
@@ -489,7 +502,7 @@ export default function Chat() {
       </AnimatePresence>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full bg-white relative">
+      <div className="flex-1 flex flex-col min-w-0 h-full bg-white relative">
         {/* Mobile Sidebar Overlay */}
         {isSidebarOpen && (
           <div
@@ -523,7 +536,7 @@ export default function Chat() {
         </header>
 
         {/* 移除全局 scroll-smooth，避免与 JS 滚动冲突 */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-[radial-gradient(#f1f5f9_1px,transparent_1px)] [background-size:20px_20px]">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-8 custom-scrollbar bg-[radial-gradient(#f1f5f9_1px,transparent_1px)] [background-size:20px_20px] max-w-full">
           <AnimatePresence initial={false}>
             {messages.length === 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full text-center space-y-6 py-12">
@@ -553,15 +566,27 @@ export default function Chat() {
                   {(msg.thought || msg.status) && (
                     <div className="w-full space-y-2">
                       {msg.thought && (
-                        <button onClick={() => toggleThought(i)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                          <div className={cn("w-1 h-1 rounded-full", msg.isStreaming && msg.content === '' ? "bg-blue-500 animate-ping" : "bg-slate-300")} />
-                          思考过程
+                        <button
+                          onClick={() => toggleThought(i)}
+                          className="flex items-center gap-2 text-[11px] font-bold text-slate-400 hover:text-blue-500 uppercase tracking-widest px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-all group"
+                        >
+                          <div className={cn("w-1.5 h-1.5 rounded-full transition-colors",
+                            msg.isStreaming && msg.content === '' ? "bg-blue-500 animate-ping" :
+                              (msg.isThoughtExpanded ?? showThought[i]) ? "bg-blue-500" : "bg-slate-300"
+                          )} />
+                          <span>思考过程</span>
+                          {(msg.isThoughtExpanded ?? showThought[i]) ?
+                            <ChevronUp className="w-3 h-3 transition-transform group-hover:-translate-y-0.5" /> :
+                            <ChevronDown className="w-3 h-3 transition-transform group-hover:translate-y-0.5" />
+                          }
                         </button>
                       )}
-                      {msg.thought && showThought[i] && (
+                      {msg.thought && (msg.isThoughtExpanded ?? showThought[i]) && (
                         <div className="relative bg-slate-50/80 rounded-3xl px-5 py-4 text-[13px] text-slate-500 leading-relaxed border border-slate-200/50">
                           <NeuralPulse />
-                          <div className="relative z-10 whitespace-pre-wrap font-mono">{msg.thought}</div>
+                          <div className="relative z-10 whitespace-pre-wrap font-mono prose prose-slate prose-xs max-w-none prose-p:my-1">
+                            {msg.thought}
+                          </div>
                         </div>
                       )}
                       {msg.status && (
@@ -598,7 +623,7 @@ export default function Chat() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ type: "spring", damping: 30, stiffness: 200 }}
                     className={cn(
-                      "rounded-[1.8rem] px-6 py-3.5 text-[15px] shadow-sm leading-[1.6] relative",
+                      "rounded-[1.8rem] px-6 py-3.5 text-[15px] shadow-sm leading-[1.6] relative max-w-full overflow-hidden",
                       msg.role === 'user'
                         ? "bg-blue-600 text-white rounded-tr-none font-medium shadow-blue-50"
                         : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
@@ -613,9 +638,6 @@ export default function Chat() {
                         </ReactMarkdown>
                       ) : (
                         msg.content
-                      )}
-                      {msg.isStreaming && msg.content !== '' && (
-                        <span className="inline-block w-1.5 h-4 ml-1 bg-blue-500 rounded-full align-middle animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                       )}
                       {msg.isStreaming && msg.content === '' && !msg.thought && !msg.status && (
                         <div className="flex gap-1.5 py-1">
