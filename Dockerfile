@@ -12,9 +12,7 @@ COPY package.json package-lock.json* ./
 
 # 极致优化 npm 安装
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm install --loglevel error
+    npm ci --no-audit --prefer-offline
 
 # 拷贝源代码 (注意：.env.local 会被 .dockerignore 忽略，这是正确的)
 COPY . .

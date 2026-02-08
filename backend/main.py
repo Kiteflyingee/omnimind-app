@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from config_loader import load_config
 from db import DBService
 from formula import FormulaService
+from memory_service import MemoryService
 
 # Load environment variables from .env.local
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -34,21 +35,63 @@ config = load_config()
 db_service = DBService(os.path.join("..", config["storage"]["sqlite_path"]))
 formula_service = FormulaService(
     config["models"]["advanced"]["base_url"],
-    config["models"]["advanced"]["api_key"]
+    config["models"]["advanced"]["api_key"],
+    db_service
 )
+memory_service = MemoryService(config["memory"]["mem0"]["api_key"])
+
+class LoginRequest(BaseModel):
+    username: str
 
 class ChatRequest(BaseModel):
     message: str
     sessionId: str
+    userId: str
     image: Optional[str] = None
-    reasoning: Optional[bool] = True
+    reasoning: Optional[bool] = False
+
+async def summarize_session_title(session_id: str, user_msg: str, ai_msg: str):
+    try:
+        fast_client = openai.AsyncOpenAI(
+            api_key=config["models"]["fast"]["api_key"],
+            base_url=config["models"]["fast"]["base_url"]
+        )
+        prompt = f"请根据以下对话内容，总结一个简短的会话标题（不超过6个字）。只返回标题文字，不要有任何修饰语或标点。\n\n用户: {user_msg}\n助手: {ai_msg}"
+        
+        response = await fast_client.chat.completions.create(
+            model=config["models"]["fast"]["name"],
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=20
+        )
+        new_title = response.choices[0].message.content.strip().replace("“", "").replace("”", "").replace("标题：", "")
+        if new_title:
+            db_service.update_session_title(session_id, new_title)
+            return new_title
+    except Exception as e:
+        print(f"Warning: Failed to summarize title: {e}")
+    return None
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
     async def event_generator():
         try:
-            # 1. Prepare context (Simplified for now, skipping memory extraction for speed)
-            system_prompt = "你是 OmniMind，由 Moonshot AI 提供的人工智能助手。你具备长效记忆能力。"
+            # 1. Retrieve memories and hard rules (Isolated by sessionId)
+            memories = memory_service.search_memory(request.message, request.userId, request.sessionId)
+            hard_rules_list = db_service.get_hard_rules(request.userId, request.sessionId)
+            hard_rules_str = "\n".join([f"- {r['content']}" for r in hard_rules_list]) if hard_rules_list else "暂无本会话专有的硬性规则"
+            
+            # 2. Prepare context
+            system_prompt = (
+                f"你是 OmniMind，由 Moonshot AI 提供的人工智能助手。你具备长效记忆能力。\n"
+                f"当前用户 ID: {request.userId}\n"
+                f"当前会话 ID: {request.sessionId}\n"
+                "注意：你现在的记忆和规则是仅针对当前会话隔离的。\n\n"
+                "### [核心指令]\n"
+                "1. 你可以通过使用 `store_hard_rule` 工具来存储用户的“硬性契约”。当用户提出需要你永久记住、始终遵守的规则或身份设定时，请务必调用此工具进行存储。\n"
+                "2. 存储后的硬性契约将出现在下方的 [硬性契约] 栏目中，并具有最高执行优先级。\n\n"
+                f"### [硬性契约 (Hard Rules)]\n这些规则你必须无条件遵守，且优先级最高：\n{hard_rules_str}\n\n"
+                f"### [相关记忆 (Soft Facts)]\n这些是关于过去对话的上下文信息，供你参考：\n{memories or '暂无相关记忆'}"
+            )
             history = db_service.get_history(request.sessionId)
             
             user_msg_content = request.message
@@ -66,10 +109,12 @@ async def chat(request: ChatRequest):
             
             # Save user message
             db_service.save_message(
+                request.userId,
                 request.sessionId, 
                 "user", 
                 f"[Image] {request.message}" if request.image else request.message
             )
+            db_service.update_session_time(request.sessionId)
             
             available_tools = await formula_service.get_tools()
             
@@ -81,24 +126,65 @@ async def chat(request: ChatRequest):
                 base_url=config["models"]["advanced"]["base_url"]
             )
             
+            final_content = ""
             while iteration < max_iterations:
                 iteration += 1
                 
-                # Defensive cleaning (Crucial for tool_call_id not found)
+                # Defensive cleaning (Ensure sequence integrity)
                 request_messages = []
+                temp_messages = []
                 for m in current_messages:
-                    clean_m = {"role": m["role"], "content": m.get("content")}
-                    if m["role"] == "assistant":
-                        has_tools = bool(m.get("tool_calls"))
-                        clean_m["content"] = m.get("content") or (None if has_tools else "")
-                        clean_m["reasoning_content"] = m.get("reasoning_content") or \
-                            ("Thought process restored." if has_tools else "Thinking...")
-                        if has_tools:
-                            clean_m["tool_calls"] = m["tool_calls"]
-                    elif m["role"] == "tool":
-                        clean_m["tool_call_id"] = m["tool_call_id"]
-                        clean_m["name"] = m.get("name")
-                    request_messages.append(clean_m)
+                    role = m["role"]
+                    content = m.get("content")
+                    
+                    if role == "system":
+                        temp_messages.append({"role": "system", "content": content})
+                    elif role == "user":
+                        temp_messages.append({"role": "user", "content": content})
+                    elif role == "assistant":
+                        msg = {"role": "assistant", "content": content}
+                        if m.get("tool_calls"):
+                            msg["tool_calls"] = m["tool_calls"]
+                            if content is None: msg["content"] = None
+                        if m.get("reasoning_content"):
+                            msg["reasoning_content"] = m["reasoning_content"]
+                        temp_messages.append(msg)
+                    elif role == "tool":
+                        temp_messages.append({
+                            "role": "tool",
+                            "tool_call_id": m.get("tool_call_id"),
+                            "name": m.get("name"),
+                            "content": content
+                        })
+
+                # Second pass: remove assistant messages with tool_calls that aren't followed by tool messages
+                i = 0
+                while i < len(temp_messages):
+                    msg = temp_messages[i]
+                    if msg["role"] == "assistant" and msg.get("tool_calls"):
+                        # Count how many tool calls
+                        num_calls = len(msg["tool_calls"])
+                        # Check if next num_calls messages are 'tool' messages
+                        all_tools_present = True
+                        if i + num_calls >= len(temp_messages):
+                            all_tools_present = False
+                        else:
+                            for j in range(1, num_calls + 1):
+                                if temp_messages[i+j]["role"] != "tool":
+                                    all_tools_present = False
+                                    break
+                        
+                        if all_tools_present:
+                            request_messages.append(msg)
+                            for j in range(1, num_calls + 1):
+                                request_messages.append(temp_messages[i+j])
+                            i += num_calls + 1
+                        else:
+                            # Skip this assistant message and keep looking
+                            i += 1
+                    else:
+                        request_messages.append(msg)
+                        i += 1
 
                 # Call Model
                 completion_args = {
@@ -106,11 +192,12 @@ async def chat(request: ChatRequest):
                     "messages": request_messages,
                     "stream": True,
                     "tools": available_tools,
-                    "temperature": 1.0,
                     "max_tokens": 32768,
                 }
                 if request.reasoning is False:
-                    completion_args["thinking"] = {"type": "disabled"}
+                    completion_args["extra_body"] = {
+                        "thinking": {"type": "disabled"}
+                    }
 
                 response = await client.chat.completions.create(**completion_args)
                 
@@ -156,43 +243,94 @@ async def chat(request: ChatRequest):
                         "tool_calls": tool_calls
                     }
                     db_service.save_message(
+                        request.userId,
                         request.sessionId, "assistant", 
                         assistant_msg["content"], assistant_msg["reasoning_content"], tool_calls
                     )
                     current_messages.append(assistant_msg)
                     
                     for tc in tool_calls:
+                        content = ""
                         try:
                             args = json.loads(tc["function"]["arguments"])
-                            result = await formula_service.call_tool(tc["function"]["name"], args)
-                            meta = json.dumps({"id": tc["id"], "name": tc["function"]["name"]})
-                            db_service.save_message(request.sessionId, "tool", str(result), meta)
-                            current_messages.append({
-                                "role": "tool",
-                                "tool_call_id": tc["id"],
-                                "name": tc["function"]["name"],
-                                "content": str(result)
-                            })
+                            result = await formula_service.call_tool(
+                                tc["function"]["name"], 
+                                args, 
+                                user_id=request.userId, 
+                                session_id=request.sessionId
+                            )
+                            content = str(result)
                         except Exception as e:
                             yield f"c:\n[Tool Error: {str(e)}]\n"
-                            db_service.save_message(request.sessionId, "tool", f"Error: {str(e)}", tc["id"])
+                            content = f"Error: {str(e)}"
+                        
+                        meta = json.dumps({"id": tc["id"], "name": tc["function"]["name"]})
+                        db_service.save_message(request.userId, request.sessionId, "tool", content, meta)
+                        current_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "name": tc["function"]["name"],
+                            "content": content
+                        })
 
                 else:
                     # Final Answer
+                    final_content = current_content
                     db_service.save_message(
+                        request.userId,
                         request.sessionId, "assistant", current_content, current_thought
                     )
+                    # Save to Mem0 (isolated by run_id)
+                    memory_service.add_memory(
+                        f"User: {request.message}\nAssistant: {current_content}",
+                        user_id=request.userId,
+                        run_id=request.sessionId
+                    )
                     break
+            
+            # 3. Check if we need to update session title
+            if not db_service.is_session_titled(request.sessionId):
+                new_title = await summarize_session_title(request.sessionId, request.message, final_content)
+                if new_title:
+                    yield f"u:{new_title}"
                     
         except Exception as e:
             yield f"c:\n[Backend Error: {str(e)}]\n"
 
     return StreamingResponse(event_generator(), media_type="text/plain")
 
-@app.get("/rules")
-async def get_rules():
+@app.post("/login")
+async def login(request: LoginRequest):
     try:
-        rules = db_service.get_hard_rules()
+        user_id = db_service.get_or_create_user(request.username)
+        return {"userId": user_id, "username": request.username}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sessions/{user_id}")
+async def get_sessions(user_id: str):
+    try:
+        return db_service.get_user_sessions(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SessionCreateRequest(BaseModel):
+    userId: str
+    sessionId: str
+    title: str
+
+@app.post("/sessions")
+async def create_session(request: SessionCreateRequest):
+    try:
+        db_service.create_session(request.userId, request.sessionId, request.title)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/rules")
+async def get_rules(sessionId: str, userId: str):
+    try:
+        rules = db_service.get_hard_rules(userId, sessionId)
         return rules
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -207,11 +345,27 @@ async def get_chat_history(session_id: str):
 
 class RuleDeleteRequest(BaseModel):
     id: str
+    userId: str # Added for consistency
 
 @app.delete("/rules")
 async def delete_rule(request: RuleDeleteRequest):
     try:
         db_service.delete_hard_rule(request.id)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/reset")
+async def reset_chat(request: Request):
+    try:
+        body = await request.json()
+        session_id = body.get("sessionId")
+        user_id = body.get("userId")
+        if not session_id or not user_id:
+            raise HTTPException(status_code=400, detail="sessionId and userId are required")
+        db_service.clear_session_data(user_id, session_id)
+        # Clear Mem0 as well
+        memory_service.clear_memory(user_id, session_id)
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

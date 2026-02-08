@@ -43,3 +43,8 @@ next-env.d.ts
 *.db
 
 backend/venv
+
+# Python
+**/__pycache__/
+*.pyc
+

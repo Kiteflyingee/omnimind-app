@@ -7,6 +7,34 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/chat',
+        destination: 'http://127.0.0.1:8000/chat',
+      },
+      {
+        source: '/login',
+        destination: 'http://127.0.0.1:8000/login',
+      },
+      {
+        source: '/sessions/:path*',
+        destination: 'http://127.0.0.1:8000/sessions/:path*',
+      },
+      {
+        source: '/history/:path*',
+        destination: 'http://127.0.0.1:8000/history/:path*',
+      },
+      {
+        source: '/rules/:path*',
+        destination: 'http://127.0.0.1:8000/rules/:path*',
+      },
+      {
+        source: '/chat/reset',
+        destination: 'http://127.0.0.1:8000/chat/reset',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

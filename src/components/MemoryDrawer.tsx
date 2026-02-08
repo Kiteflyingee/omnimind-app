@@ -9,14 +9,14 @@ interface Rule {
   content: string;
 }
 
-export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { isOpen: boolean; onClose: () => void; sessionId: string; userId: string }) {
   const [rules, setRules] = useState<Rule[]>([]);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
   const fetchRules = async () => {
     try {
-      const res = await fetch(`${apiUrl}/rules`);
+      const res = await fetch(`${apiUrl}/rules?sessionId=${sessionId}&userId=${userId}`);
       const data = await res.json();
       setRules(data);
     } catch (e) {
@@ -25,14 +25,14 @@ export default function MemoryDrawer({ isOpen, onClose }: { isOpen: boolean; onC
   };
 
   useEffect(() => {
-    if (isOpen) fetchRules();
-  }, [isOpen]);
+    if (isOpen && userId) fetchRules();
+  }, [isOpen, sessionId, userId]);
 
   const deleteRule = async (id: string) => {
     await fetch(`${apiUrl}/rules`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, userId, sessionId }),
     });
     fetchRules();
   };
