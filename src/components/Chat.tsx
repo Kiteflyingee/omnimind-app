@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Settings, Sparkles, User, Bot, ImagePlus, X, Loader2, ChevronDown, ChevronUp, Zap, Command, Plus, Trash2, Menu, PanelLeft, Layers } from 'lucide-react';
+import { Send, Settings, Sparkles, User, Bot, ImagePlus, X, Loader2, ChevronDown, ChevronUp, Zap, Command, Plus, Trash2, Menu, PanelLeft, Layers, Search, Brain, Wrench } from 'lucide-react';
 import { Button, Input, cn } from './ui/core';
 import MemoryDrawer from './MemoryDrawer';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,7 +54,7 @@ export default function Chat() {
   const [image, setImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isReasoningEnabled, setIsReasoningEnabled] = useState(false);
+  const [isReasoningEnabled, setIsReasoningEnabled] = useState(true);
   const [showThought, setShowThought] = useState<Record<number, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -308,53 +308,108 @@ export default function Chat() {
       if (!response.ok) throw new Error('发送失败');
 
       const reader = response.body?.getReader();
+      if (!reader) throw new Error('无法读取响应流');
+
       const decoder = new TextDecoder();
       let assistantMsg = '';
       let assistantThought = '';
       let assistantStatus = '';
-      const msgIndex = messages.length + 1;
+      let assistantMessageIndex = -1; // To store the index of the assistant message
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: '', thought: '', status: '', isStreaming: true }]);
+      setMessages((prev) => {
+        assistantMessageIndex = prev.length; // Capture the index of the new assistant message
+        setShowThought(st => ({ ...st, [assistantMessageIndex]: true }));
+        return [...prev, { role: 'assistant', content: '', thought: '', status: '', isStreaming: true }];
+      });
       setIsLoading(false);
-      setShowThought(prev => ({ ...prev, [msgIndex]: true }));
+
+      let currentMode: 't' | 'c' | 's' | 'u' | null = null;
+      let buffer = '';
 
       while (true) {
-        const { done, value } = await reader!.read();
+        const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split(/(?=[tcs u]:)/);
+        buffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('t:')) assistantThought += line.slice(2);
-          else if (line.startsWith('c:')) assistantMsg += line.slice(2);
-          else if (line.startsWith('s:')) assistantStatus = line.slice(2);
-          else if (line.startsWith('u:')) {
-            const newTitle = line.slice(2);
-            setSessions(prev => prev.map(s =>
-              s.id === activeSessionId ? { ...s, title: newTitle, updatedAt: Date.now() } : s
-            ));
+        // Process the buffer
+        // Prefixes are t:, c:, s:, u:
+        while (buffer.length > 0) {
+          // Check if we have a prefix at the start of the buffer
+          const prefixMatch = buffer.match(/^([tcsu]):/);
+          if (prefixMatch) {
+            currentMode = prefixMatch[1] as 't' | 'c' | 's' | 'u';
+            buffer = buffer.slice(2);
+            continue;
           }
+
+          // If we don't have a prefix at the start, we look for the next prefix
+          const nextPrefixIndex = buffer.search(/[tcsu]:/);
+          let content = '';
+
+          if (nextPrefixIndex === -1) {
+            // No more prefixes in this buffer, all remaining is content for currentMode
+            // But wait, if the buffer ends with a partial prefix (e.g. "t"), we should keep it
+            const partialMatch = buffer.match(/[tcsu]$/);
+            if (partialMatch) {
+              const keep = buffer.length - 1;
+              content = buffer.slice(0, keep);
+              buffer = buffer.slice(keep);
+            } else {
+              content = buffer;
+              buffer = '';
+            }
+          } else {
+            // Found a prefix later in the buffer
+            content = buffer.slice(0, nextPrefixIndex);
+            buffer = buffer.slice(nextPrefixIndex);
+          }
+
+          if (content) {
+            if (currentMode === 't') assistantThought += content;
+            else if (currentMode === 'c') assistantMsg += content;
+            else if (currentMode === 's') assistantStatus += content;
+            else if (currentMode === 'u') {
+              const newTitle = content.trim();
+              if (newTitle) {
+                setSessions(prev => prev.map(s =>
+                  s.id === activeSessionId ? { ...s, title: newTitle, updatedAt: Date.now() } : s
+                ));
+              }
+            }
+          }
+
+          // Trigger update
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            const lastIdx = newMsgs.length - 1;
+            if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
+              newMsgs[lastIdx] = {
+                ...newMsgs[lastIdx],
+                content: assistantMsg,
+                thought: assistantThought,
+                status: assistantStatus
+              };
+            }
+            return newMsgs;
+          });
+
+          // If we just processed content and the buffer is empty, we're done with this chunk
+          if (buffer === '' || /^[tcsu]$/.test(buffer)) break;
         }
-
-        setMessages((prev) => {
-          const newMsgs = [...prev];
-          const lastMsg = newMsgs[newMsgs.length - 1];
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.content = assistantMsg;
-            lastMsg.thought = assistantThought;
-            lastMsg.status = assistantStatus;
-          }
-          return newMsgs;
-        });
       }
 
       setMessages((prev) => {
         const newMsgs = [...prev];
-        const lastMsg = newMsgs[newMsgs.length - 1];
-        if (lastMsg && lastMsg.role === 'assistant') {
-          lastMsg.status = ''; // 完成后清除状态
-          lastMsg.isStreaming = false;
+        const lastIdx = newMsgs.length - 1;
+        if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
+          newMsgs[lastIdx] = {
+            ...newMsgs[lastIdx],
+            status: '',
+            isStreaming: false,
+            content: assistantMsg,
+            thought: assistantThought
+          };
         }
         return newMsgs;
       });
@@ -510,10 +565,25 @@ export default function Chat() {
                         </div>
                       )}
                       {msg.status && (
-                        <div className="flex items-center gap-3 px-5 py-3 bg-blue-50/30 rounded-2xl border border-blue-100/50 text-[12px] text-blue-600 font-medium animate-in fade-in slide-in-from-top-1">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          {msg.status}
-                        </div>
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          className="flex items-center gap-3 px-5 py-3 bg-white/50 backdrop-blur-md rounded-2xl border border-slate-100 shadow-sm text-[12px] text-slate-600 font-medium group transition-all hover:border-blue-200"
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-md animate-pulse" />
+                            {msg.status.includes('🔍') ? <Search className="w-3.5 h-3.5 text-blue-500 relative z-10" /> :
+                              msg.status.includes('🛠️') ? <Wrench className="w-3.5 h-3.5 text-amber-500 relative z-10 animate-spin-slow" /> :
+                                msg.status.includes('🧠') ? <Brain className="w-3.5 h-3.5 text-indigo-500 relative z-10 animate-pulse" /> :
+                                  <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin relative z-10" />}
+                          </div>
+                          <span className="truncate">{msg.status.replace(/[🔍🛠️🧠]/g, '').trim()}</span>
+                          <div className="flex gap-0.5 ml-auto">
+                            <span className="w-0.5 h-0.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-0.5 h-0.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+                            <span className="w-0.5 h-0.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
+                          </div>
+                        </motion.div>
                       )}
                     </div>
                   )}

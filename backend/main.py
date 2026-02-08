@@ -61,7 +61,7 @@ async def summarize_session_title(session_id: str, user_msg: str, ai_msg: str):
         response = await fast_client.chat.completions.create(
             model=config["models"]["fast"]["name"],
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=20
+            max_tokens=30
         )
         new_title = response.choices[0].message.content.strip().replace("“", "").replace("”", "").replace("标题：", "")
         if new_title:
@@ -76,6 +76,7 @@ async def chat(request: ChatRequest):
     async def event_generator():
         try:
             # 1. Retrieve memories and hard rules (Isolated by sessionId)
+            yield "s:🔍 正在检索记忆与规则..."
             memories = memory_service.search_memory(request.message, request.userId, request.sessionId)
             hard_rules_list = db_service.get_hard_rules(request.userId, request.sessionId)
             hard_rules_str = "\n".join([f"- {r['content']}" for r in hard_rules_list]) if hard_rules_list else "暂无本会话专有的硬性规则"
@@ -129,6 +130,7 @@ async def chat(request: ChatRequest):
             final_content = ""
             while iteration < max_iterations:
                 iteration += 1
+                yield "s:🧠 正在思考中..."
                 
                 # Defensive cleaning (Ensure sequence integrity)
                 request_messages = []
@@ -143,11 +145,21 @@ async def chat(request: ChatRequest):
                         temp_messages.append({"role": "user", "content": content})
                     elif role == "assistant":
                         msg = {"role": "assistant", "content": content}
+                        # Include reasoning_content as required by Kimi models
+                        if "reasoning_content" in m:
+                            msg["reasoning_content"] = m["reasoning_content"]
+                        elif "thought" in m: # Handle alternate naming
+                            msg["reasoning_content"] = m["thought"]
+                        
+                        # Kimi models REQUIRE reasoning_content to be present in assistant messages with tool_calls
                         if m.get("tool_calls"):
                             msg["tool_calls"] = m["tool_calls"]
                             if content is None: msg["content"] = None
-                        if m.get("reasoning_content"):
-                            msg["reasoning_content"] = m["reasoning_content"]
+                            
+                            # Ensure reasoning_content is non-empty if tool_calls are present
+                            if not msg.get("reasoning_content"):
+                                msg["reasoning_content"] = "Analyzing context and preparing tool calls..."
+                        
                         temp_messages.append(msg)
                     elif role == "tool":
                         temp_messages.append({
@@ -192,29 +204,52 @@ async def chat(request: ChatRequest):
                     "messages": request_messages,
                     "stream": True,
                     "tools": available_tools,
-                    "max_tokens": 32768,
+                    "max_tokens": 1024 * 32,
+                    "temperature": 1.0,
                 }
                 if request.reasoning is False:
                     completion_args["extra_body"] = {
                         "thinking": {"type": "disabled"}
                     }
+                else:
+                    # Some models might need explicit enablement or specific extra_body
+                    # but following the user's success example which doesn't have it.
+                    pass
 
                 response = await client.chat.completions.create(**completion_args)
                 
                 current_thought = ""
                 current_content = ""
                 tool_calls_map = {}
+                has_cleared_status = False
                 
                 async for chunk in response:
+                    if not chunk.choices:
+                        continue
                     delta = chunk.choices[0].delta
                     
-                    if hasattr(delta, "reasoning_content") and delta.reasoning_content:
-                        current_thought += delta.reasoning_content
-                        yield f"t:{delta.reasoning_content}"
+                    # Safely extract reasoning_content and content
+                    # Note: reasoning_content might be in model_extra for some SDK versions
+                    # Some models also use 'thought' instead of 'reasoning_content'
+                    reasoning_chunk = getattr(delta, "reasoning_content", None)
+                    if reasoning_chunk is None:
+                        reasoning_chunk = getattr(delta, "thought", None)
+                    if reasoning_chunk is None and hasattr(delta, "model_extra"):
+                        reasoning_chunk = delta.model_extra.get("reasoning_content") or delta.model_extra.get("thought")
+                    
+                    content_chunk = getattr(delta, "content", None)
+                    
+                    if (content_chunk or reasoning_chunk) and not has_cleared_status:
+                        yield "s:"
+                        has_cleared_status = True
+                    
+                    if reasoning_chunk:
+                        current_thought += reasoning_chunk
+                        yield f"t:{reasoning_chunk}"
                         
-                    if delta.content:
-                        current_content += delta.content
-                        yield f"c:{delta.content}"
+                    if content_chunk:
+                        current_content += content_chunk
+                        yield f"c:{content_chunk}"
                         
                     if delta.tool_calls:
                         for tc in delta.tool_calls:
@@ -233,14 +268,19 @@ async def chat(request: ChatRequest):
                 
                 if tool_calls:
                     # Execute Tools
-                    tool_names = ", ".join([tc["function"]["name"] for tc in tool_calls])
-                    yield f"s:📌 正在执行: {tool_names}..."
+                    friendly_names = {
+                        "store_hard_rule": "存储硬性规则",
+                        "web_search": "网络搜索",
+                        "calculate": "数学计算"
+                    }
+                    tool_display_names = ", ".join([friendly_names.get(tc["function"]["name"], tc["function"]["name"]) for tc in tool_calls])
+                    yield f"s:🛠️ 正在执行: {tool_display_names}..."
                     
                     assistant_msg = {
                         "role": "assistant",
                         "content": current_content or None,
                         "reasoning_content": current_thought or "Analyzing...",
-                        "tool_calls": tool_calls
+                    "tool_calls": tool_calls
                     }
                     db_service.save_message(
                         request.userId,
@@ -297,7 +337,16 @@ async def chat(request: ChatRequest):
         except Exception as e:
             yield f"c:\n[Backend Error: {str(e)}]\n"
 
-    return StreamingResponse(event_generator(), media_type="text/plain")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/plain",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Content-Type-Options": "nosniff"
+        }
+    )
 
 @app.post("/login")
 async def login(request: LoginRequest):
@@ -372,4 +421,4 @@ async def reset_chat(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
