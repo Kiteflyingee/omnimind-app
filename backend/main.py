@@ -91,7 +91,7 @@ async def chat(request: ChatRequest):
             
             # 2. Prepare context
             system_prompt = (
-                f"你是 OmniMind，由 Moonshot AI 提供的人工智能助手。你具备长效记忆能力。\n"
+                f"你是 AiMin，由 Moonshot AI 提供的人工智能助手。你具备长效记忆能力。\n"
                 f"当前用户 ID: {request.userId}\n"
                 f"当前会话 ID: {request.sessionId}\n"
                 "注意：你现在的记忆和规则是仅针对当前会话隔离的。\n\n"

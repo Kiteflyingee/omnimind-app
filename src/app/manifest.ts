@@ -2,30 +2,23 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: "OmniMind",
-        short_name: "OmniMind",
-        description: "AI with Long-term Memory",
+        name: "AiMin",
+        short_name: "AiMin",
+        description: "AI-native Memory System",
         start_url: "/",
         display: "standalone",
         background_color: "#ffffff",
-        theme_color: "#ffffff",
+        theme_color: "#000000",
         icons: [
             {
-                src: "/avatars/ai.png",
+                src: "/avatars/aimin.png",
                 sizes: "192x192",
                 type: "image/png",
-                purpose: "maskable",
             },
             {
-                src: "/avatars/ai.png",
+                src: "/avatars/aimin.png",
                 sizes: "512x512",
                 type: "image/png",
-                purpose: "any",
-            },
-            {
-                src: "/favicon.ico",
-                sizes: "any",
-                type: "image/x-icon",
             },
         ],
     };

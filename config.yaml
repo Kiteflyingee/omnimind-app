@@ -1,4 +1,4 @@
-# OmniMind Configuration
+# AiMin Configuration
 
 models:
   fast:
@@ -13,7 +13,7 @@ models:
 memory:
   mem0:
     api_key: "${MEM0_API_KEY}"
-    project_id: "omnimind"
+    project_id: "aimin"
 
 storage:
   sqlite_path: "./omnimind.db"

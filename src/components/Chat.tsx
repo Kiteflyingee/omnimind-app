@@ -73,7 +73,7 @@ export default function Chat() {
     setMounted(true);
     if (window.innerWidth > 1024) setIsSidebarOpen(true);
 
-    const savedUser = localStorage.getItem('omnimind-user');
+    const savedUser = localStorage.getItem('aimin-user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       setCurrentUser(user);
@@ -120,7 +120,7 @@ export default function Chat() {
       if (data.userId) {
         const user = { id: data.userId, username: data.username };
         setCurrentUser(user);
-        localStorage.setItem('omnimind-user', JSON.stringify(user));
+        localStorage.setItem('aimin-user', JSON.stringify(user));
         loadSessions(data.userId);
       }
     } catch (e) {
@@ -131,7 +131,7 @@ export default function Chat() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('omnimind-user');
+    localStorage.removeItem('aimin-user');
     setCurrentUser(null);
     setSessions([]);
     setActiveSessionId('');
@@ -141,7 +141,7 @@ export default function Chat() {
   // Save sessions to localStorage
   useEffect(() => {
     if (currentUser && sessions.length > 0) {
-      localStorage.setItem(`omnimind-sessions-${currentUser.id}`, JSON.stringify(sessions));
+      localStorage.setItem(`aimin-sessions-${currentUser.id}`, JSON.stringify(sessions));
     }
   }, [sessions, currentUser]);
 
@@ -320,7 +320,7 @@ export default function Chat() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-      const useMemory = localStorage.getItem('omnimind_use_memory') !== 'false';
+      const useMemory = localStorage.getItem('aimin_use_memory') !== 'false';
 
       const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',
@@ -536,7 +536,7 @@ export default function Chat() {
             </button>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-0.5">OmniMind</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-0.5">AiMin</span>
             <h1 className="text-lg font-black tracking-tight">神经中枢</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -561,7 +561,7 @@ export default function Chat() {
                 <div className="w-16 h-16 bg-slate-900 rounded-[2rem] flex items-center justify-center shadow-xl">
                   <Sparkles className="w-8 h-8 text-blue-400" />
                 </div>
-                <p className="text-slate-400 text-sm">OmniMind 已就绪</p>
+                <p className="text-slate-400 text-sm">AiMin 已就绪</p>
               </motion.div>
             )}
 
@@ -574,7 +574,7 @@ export default function Chat() {
                   {msg.role === 'user' ? (
                     <img src="/avatars/user.png" alt="User" className="w-full h-full object-cover" />
                   ) : (
-                    <img src="/avatars/ai.png" alt="AI" className={cn("w-full h-full object-cover", msg.isStreaming && "animate-pulse")} />
+                    <img src="/avatars/aimin.png" alt="AI" className={cn("w-full h-full object-cover", msg.isStreaming && "animate-pulse")} />
                   )}
                 </div>
 
@@ -749,7 +749,7 @@ export default function Chat() {
                     transition={{ delay: 0.2 }}
                   >
                     <h2 className="text-2xl font-black tracking-tight text-slate-900 mb-2">
-                      欢迎进入 OmniMind
+                      欢迎进入 AiMin
                     </h2>
                     <p className="text-slate-400 text-sm font-medium">
                       请输入神经通行证名称以同步记忆

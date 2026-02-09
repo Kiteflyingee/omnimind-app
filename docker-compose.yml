@@ -1,5 +1,5 @@
 services:
-  omnimind-app:
+  aimin-app:
     build:
       context: .
       args:
@@ -7,7 +7,7 @@ services:
         - https_proxy=${HTTPS_PROXY:-}
         # 重要：Next.js 构建时需要该变量，若配合 Nginx 使用可保持为空或 "."
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
-    container_name: omnimind-app
+    container_name: aimin-app
     ports:
       - "3000:3000"
     volumes:
@@ -16,16 +16,16 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     depends_on:
-      - omnimind-backend
+      - aimin-backend
     restart: always
 
-  omnimind-backend:
+  aimin-backend:
     build:
       context: ./backend
       args:
         - http_proxy=${HTTP_PROXY:-}
         - https_proxy=${HTTPS_PROXY:-}
-    container_name: omnimind-backend
+    container_name: aimin-backend
     ports:
       - "8000:8000"
     volumes:

@@ -16,7 +16,7 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
 
   // Load preference on mount
   useEffect(() => {
-    const saved = localStorage.getItem('omnimind_use_memory');
+    const saved = localStorage.getItem('aimin_use_memory');
     if (saved !== null) {
       setUseMemory(saved === 'true');
     }
@@ -25,7 +25,7 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
   const toggleMemory = () => {
     const nextValue = !useMemory;
     setUseMemory(nextValue);
-    localStorage.setItem('omnimind_use_memory', String(nextValue));
+    localStorage.setItem('aimin_use_memory', String(nextValue));
   };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
@@ -169,7 +169,7 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
             {/* Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-100">
               <p className="text-[10px] text-center text-slate-400 leading-relaxed">
-                OmniMind 使用分层存储架构，确保您的隐私与核心指令永久留存。
+                AiMin 使用分层存储架构，确保您的隐私与核心指令永久留存。
               </p>
             </div>
           </motion.div>

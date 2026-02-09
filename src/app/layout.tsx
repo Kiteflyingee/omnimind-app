@@ -5,15 +5,15 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "OmniMind Mobile",
-  description: "AI with Long-term Memory",
+  title: "AiMin Mobile",
+  description: "AI-native Memory System",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "OmniMind",
+    title: "AiMin",
   },
   icons: {
-    apple: "/avatars/ai.png",
+    apple: "/avatars/aimin.png",
   },
 };
 
