@@ -322,7 +322,7 @@ export default function Chat() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
       const useMemory = localStorage.getItem('aimin_use_memory') === 'true';
       const recentContextStr = localStorage.getItem('aimin_recent_context');
-      const recentContextCount = recentContextStr !== null ? parseInt(recentContextStr, 10) : 20;
+      const recentContextCount = recentContextStr !== null ? parseInt(recentContextStr, 10) : -1;
 
       const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',

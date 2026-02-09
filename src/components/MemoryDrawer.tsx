@@ -13,7 +13,7 @@ interface Rule {
 export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { isOpen: boolean; onClose: () => void; sessionId: string; userId: string }) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [useMemory, setUseMemory] = useState(false);
-  const [recentContext, setRecentContext] = useState(20);
+  const [recentContext, setRecentContext] = useState(-1);
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Load preferences on mount
@@ -199,7 +199,7 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
                     </button>
                     {showTooltip && (
                       <div className="absolute left-6 top-0 w-56 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl z-10">
-                        此设置让模型更专注于最近的对话，不影响长效记忆。
+                        此设置让模型更专注于最近的对话，不影响长效记忆。（如果开启柔性事实，建议设置保留20条上下文，让模型更加专注）
                         <div className="absolute left-0 top-2 -translate-x-1 w-2 h-2 bg-slate-800 rotate-45" />
                       </div>
                     )}

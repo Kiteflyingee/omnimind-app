@@ -216,14 +216,19 @@ async def chat(request: ChatRequest):
             
             # Context Safety: Compress history if too long
             history_tokens = estimate_tokens(history)
-            if history_tokens > MAX_HISTORY_TOKENS and request.recentContextCount != -1:
+            if history_tokens > MAX_HISTORY_TOKENS:
                 yield "s:📦 正在压缩历史对话..."
                 
                 # Try to get existing summary (in thread)
                 summary = await asyncio.to_thread(db_service.get_history_summary, request.sessionId)
                 
                 # Determine how many recent messages to keep
-                recent_count = request.recentContextCount if request.recentContextCount > 0 else 0
+                # If Unlimited (-1) or not set, default to 20 when compressing for safety
+                recent_count = request.recentContextCount
+                if recent_count == -1:
+                    recent_count = 20
+                elif recent_count <= 0:
+                    recent_count = 0
                 
                 if not summary:
                     # Generate new summary (exclude recent messages that will be kept)
