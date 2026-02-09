@@ -160,7 +160,8 @@ async def chat(request: ChatRequest):
                 "注意：你现在的记忆和规则是仅针对当前会话隔离的。\n\n"
                 "### [核心指令]\n"
                 "1. 你可以通过使用 `store_hard_rule` 工具来存储用户的“硬性契约”。当用户提出需要你永久记住、始终遵守的规则或身份设定时，请务必调用此工具进行存储。\n"
-                "2. 存储后的硬性契约将出现在下方的 [硬性契约] 栏目中，并具有最高执行优先级。\n\n"
+                "2. 存储后的硬性契约将出现在下方的 [硬性契约] 栏目中，并具有最高执行优先级。\n"
+                "3. **即使处于非思考模式，也必须执行工具调用。**不要因为没有思考过程而忽略用户的存储请求。\n\n"
 
                 "### [多模态处理规则] 【新增模块：优先级仅次于用户显式指令】\n"
                 "#### 1. 输入预检（针对图片/文件）\n"
@@ -247,10 +248,19 @@ async def chat(request: ChatRequest):
             
 
             user_msg_content = request.message
+            
+            # In non-reasoning mode, inject hard rules directly into the user message
+            # This puts them closer in the attention window, forcing compliance
+            if not request.reasoning and hard_rules_list:
+                rules_reminder = "【系统提醒：在回复前，请严格遵守以下硬性契约】\n"
+                rules_reminder += "\n".join([f"• {r['content']}" for r in hard_rules_list])
+                rules_reminder += "\n\n---\n\n"
+                user_msg_content = rules_reminder + request.message
+            
             if request.image:
                 user_msg_content = [
                     {"type": "image_url", "image_url": {"url": request.image}},
-                    {"type": "text", "text": request.message or "描述图片"}
+                    {"type": "text", "text": (rules_reminder + (request.message or "描述图片")) if (not request.reasoning and hard_rules_list) else (request.message or "描述图片")}
                 ]
             
             current_messages = [

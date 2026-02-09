@@ -55,7 +55,7 @@ export default function Chat() {
   const [image, setImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isReasoningEnabled, setIsReasoningEnabled] = useState(true);
+  const [isReasoningEnabled, setIsReasoningEnabled] = useState(false);
   const [showThought, setShowThought] = useState<Record<number, boolean>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
