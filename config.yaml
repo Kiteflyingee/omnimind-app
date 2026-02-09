@@ -17,3 +17,6 @@ memory:
 
 storage:
   sqlite_path: "./omnimind.db"
+
+context:
+  max_history_tokens: 200000  # 超过此值时自动压缩历史

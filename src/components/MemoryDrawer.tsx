@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Brain, Trash2, ShieldCheck, Database, Zap } from 'lucide-react';
+import { X, Brain, Trash2, ShieldCheck, Database, Zap, Clock, HelpCircle } from 'lucide-react';
 import { cn } from './ui/core';
 
 interface Rule {
@@ -12,13 +12,19 @@ interface Rule {
 
 export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { isOpen: boolean; onClose: () => void; sessionId: string; userId: string }) {
   const [rules, setRules] = useState<Rule[]>([]);
-  const [useMemory, setUseMemory] = useState(true);
+  const [useMemory, setUseMemory] = useState(false);
+  const [recentContext, setRecentContext] = useState(20);
+  const [showTooltip, setShowTooltip] = useState(false);
 
-  // Load preference on mount
+  // Load preferences on mount
   useEffect(() => {
-    const saved = localStorage.getItem('aimin_use_memory');
-    if (saved !== null) {
-      setUseMemory(saved === 'true');
+    const savedMemory = localStorage.getItem('aimin_use_memory');
+    if (savedMemory !== null) {
+      setUseMemory(savedMemory === 'true');
+    }
+    const savedContext = localStorage.getItem('aimin_recent_context');
+    if (savedContext !== null) {
+      setRecentContext(parseInt(savedContext, 10));
     }
   }, []);
 
@@ -26,6 +32,19 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
     const nextValue = !useMemory;
     setUseMemory(nextValue);
     localStorage.setItem('aimin_use_memory', String(nextValue));
+  };
+
+  const contextOptions = [
+    { label: '0', value: 0 },
+    { label: '20', value: 20 },
+    { label: '40', value: 40 },
+    { label: '60', value: 60 },
+    { label: '不限', value: -1 },
+  ];
+
+  const handleContextChange = (value: number) => {
+    setRecentContext(value);
+    localStorage.setItem('aimin_recent_context', String(value));
   };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
@@ -162,6 +181,50 @@ export default function MemoryDrawer({ isOpen, onClose, sessionId, userId }: { i
                     <span className={cn("w-1 h-1 rounded-full", useMemory ? "bg-amber-400" : "bg-slate-300")} />
                     {useMemory ? "Cloud Sync Active" : "Sync Disabled"}
                   </div>
+                </div>
+              </section>
+
+              {/* Recent Context Section */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-5 h-5 text-blue-500" />
+                  <h3 className="font-bold text-slate-700">近期上下文</h3>
+                  <div className="relative">
+                    <button
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                    {showTooltip && (
+                      <div className="absolute left-6 top-0 w-56 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl z-10">
+                        此设置让模型更专注于最近的对话，不影响长效记忆。
+                        <div className="absolute left-0 top-2 -translate-x-1 w-2 h-2 bg-slate-800 rotate-45" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl border bg-blue-50/50 border-blue-100">
+                  <div className="flex gap-2">
+                    {contextOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => handleContextChange(opt.value)}
+                        className={cn(
+                          "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all",
+                          recentContext === opt.value
+                            ? "bg-blue-600 text-white shadow-md"
+                            : "bg-white text-slate-600 hover:bg-blue-100 border border-blue-100"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-blue-600">
+                    当前：保留最近 {recentContext === -1 ? '全部' : recentContext === 0 ? '0 条' : `${recentContext} 条`} 对话
+                  </p>
                 </div>
               </section>
             </div>

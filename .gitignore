@@ -47,4 +47,3 @@ backend/venv
 # Python
 **/__pycache__/
 *.pyc
-

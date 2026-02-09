@@ -320,7 +320,9 @@ export default function Chat() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-      const useMemory = localStorage.getItem('aimin_use_memory') !== 'false';
+      const useMemory = localStorage.getItem('aimin_use_memory') === 'true';
+      const recentContextStr = localStorage.getItem('aimin_recent_context');
+      const recentContextCount = recentContextStr !== null ? parseInt(recentContextStr, 10) : 20;
 
       const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',
@@ -331,7 +333,8 @@ export default function Chat() {
           sessionId: activeSessionId,
           userId: currentUser?.id,
           reasoning: isReasoningEnabled,
-          useMemory: useMemory
+          useMemory: useMemory,
+          recentContextCount: recentContextCount
         }),
       });
 
@@ -565,9 +568,9 @@ export default function Chat() {
             )}
 
             {messages.map((msg, i) => (
-              <div key={i} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
+              <div key={i} className={cn("flex gap-3 md:gap-4", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
                 <div className={cn(
-                  "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md overflow-hidden bg-white",
+                  "w-10 h-10 rounded-2xl hidden sm:flex items-center justify-center shrink-0 shadow-md overflow-hidden bg-white",
                   msg.role === 'user' ? "bg-white" : ""
                 )}>
                   {msg.role === 'user' ? (
@@ -577,7 +580,7 @@ export default function Chat() {
                   )}
                 </div>
 
-                <div className={cn("max-w-[85%] space-y-3", msg.role === 'user' ? "items-end" : "items-start")}>
+                <div className={cn("max-w-full sm:max-w-[85%] space-y-3", msg.role === 'user' ? "items-end" : "items-start")}>
                   {msg.image && (
                     <div className="p-1 bg-white rounded-3xl shadow-lg border border-slate-100 max-w-[calc(100vw-120px)] lg:max-w-md">
                       <img src={msg.image} alt="Upload" className="w-full h-auto rounded-2xl object-contain message-image" />

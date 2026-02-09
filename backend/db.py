@@ -63,7 +63,7 @@ class DBService:
             migrations = {
                 "conversation_history": ["user_id", "session_id"],
                 "hard_rules": ["user_id", "session_id", "is_active"],
-                "sessions": ["user_id", "title", "updated_at"]
+                "sessions": ["user_id", "title", "updated_at", "history_summary"]
             }
             for table, cols in migrations.items():
                 # Check current columns
@@ -237,3 +237,23 @@ class DBService:
             )
             conn.commit()
         return rule_id
+
+    def save_history_summary(self, session_id: str, summary: str):
+        """Save compressed history summary for a session"""
+        with self._get_conn() as conn:
+            conn.execute(
+                "UPDATE sessions SET history_summary = ? WHERE id = ?",
+                (summary, session_id)
+            )
+            conn.commit()
+
+    def get_history_summary(self, session_id: str) -> str:
+        """Get stored history summary for a session"""
+        with self._get_conn() as conn:
+            cursor = conn.execute(
+                "SELECT history_summary FROM sessions WHERE id = ?",
+                (session_id,)
+            )
+            row = cursor.fetchone()
+            return row["history_summary"] if row and row["history_summary"] else ""
+
