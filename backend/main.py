@@ -292,7 +292,7 @@ async def chat(request: ChatRequest):
             final_content = ""
             while iteration < max_iterations:
                 iteration += 1
-                yield "s:🧠 正在思考中..."
+                yield "s:🧠 正在思考中..." if request.reasoning else "s:⚡ 正在生成中..."
                 
                 # Strict sequence reconstruction for API request
                 request_messages = []
