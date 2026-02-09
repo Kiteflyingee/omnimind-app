@@ -506,11 +506,11 @@ export default function Chat() {
                 退出登录
               </button>
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold">
-                  {currentUser?.username.slice(0, 1).toUpperCase()}
+                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shadow-sm">
+                  <img src="/avatars/user.png" alt="User" className="w-full h-full object-cover" />
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Neural User</p>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">AiMin User</p>
                   <p className="text-xs font-bold truncate">{currentUser?.username}</p>
                 </div>
               </div>
@@ -536,8 +536,7 @@ export default function Chat() {
             </button>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-0.5">AiMin</span>
-            <h1 className="text-lg font-black tracking-tight">神经中枢</h1>
+            <span className="text-[18px] font-black uppercase tracking-[0.3em] text-blue-500 mb-0.5">AiMin</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -568,8 +567,8 @@ export default function Chat() {
             {messages.map((msg, i) => (
               <div key={i} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
                 <div className={cn(
-                  "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md overflow-hidden bg-white border border-slate-100",
-                  msg.role === 'user' ? "bg-slate-900 border-slate-800" : ""
+                  "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md overflow-hidden bg-white",
+                  msg.role === 'user' ? "bg-white" : ""
                 )}>
                   {msg.role === 'user' ? (
                     <img src="/avatars/user.png" alt="User" className="w-full h-full object-cover" />
@@ -738,9 +737,9 @@ export default function Chat() {
                   <motion.div
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
-                    className="w-20 h-20 bg-slate-900 rounded-[2rem] flex items-center justify-center shadow-xl mx-auto mb-6"
+                    className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center shadow-xl mx-auto mb-6 overflow-hidden border border-slate-50"
                   >
-                    <Bot className="w-10 h-10 text-blue-400" />
+                    <img src="/avatars/aimin.png" alt="AiMin" className="w-full h-full object-cover" />
                   </motion.div>
 
                   <motion.div
@@ -752,7 +751,7 @@ export default function Chat() {
                       欢迎进入 AiMin
                     </h2>
                     <p className="text-slate-400 text-sm font-medium">
-                      请输入神经通行证名称以同步记忆
+                      请输入AiMin通行证名称以同步记忆
                     </p>
                   </motion.div>
                 </div>
