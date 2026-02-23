@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -656,8 +658,29 @@ export default function Chat() {
                       )}>
                       {msg.role === 'assistant' ? (
                         <div className="markdown-content">
-                          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                            {msg.content}
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm, remarkBreaks]}
+                            components={{
+                              code(props: any) {
+                                const { children, className, node, ...rest } = props;
+                                const match = /language-(\w+)/.exec(className || '');
+                                return match ? (
+                                  <SyntaxHighlighter
+                                    {...rest}
+                                    PreTag="div"
+                                    children={String(children).replace(/\n$/, '')}
+                                    language={match[1]}
+                                    style={vscDarkPlus}
+                                  />
+                                ) : (
+                                  <code {...rest} className={cn("bg-slate-100 px-1.5 py-0.5 rounded-md text-slate-800 text-[0.9em]", className)}>
+                                    {children}
+                                  </code>
+                                );
+                              }
+                            }}
+                          >
+                            {msg.content.replace(/([^\n])```/g, '$1\n\n```')}
                           </ReactMarkdown>
                         </div>
                       ) : (
